@@ -1,5 +1,6 @@
 import os
 import json
+import sqlite3
 import statistics
 from functools import wraps
 from datetime import datetime, timedelta
@@ -152,9 +153,25 @@ def auth_status():
         'username': username if user_id else None
     })
 
+@app.route('/api/auth/check-username', methods=['GET'])
+def check_username():
+    username = request.args.get('username', '').strip()
+    if not username or len(username) < 3:
+        return jsonify({'available': False, 'message': 'Tên đăng nhập phải từ 3 ký tự trở lên'})
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+    existing = cursor.fetchone()
+    conn.close()
+    
+    if existing:
+        return jsonify({'available': False, 'message': 'Tên đăng nhập này đã được sử dụng'})
+    return jsonify({'available': True, 'message': 'Tên đăng nhập hợp lệ'})
+
 @app.route('/api/auth/register', methods=['POST'])
 def auth_register():
-    data = request.get_json()
+    data = request.get_json() or {}
     username = data.get('username', '').strip()
     password = data.get('password', '').strip()
 
@@ -163,10 +180,17 @@ def auth_register():
     if not password or len(password) < 4:
         return jsonify({'error': 'Mật khẩu phải từ 4 ký tự trở lên'}), 400
 
-    hashed_pw = generate_password_hash(password)
-
     conn = get_db()
     cursor = conn.cursor()
+
+    # Kiểm tra trùng lặp tên đăng nhập (không phân biệt hoa/thường)
+    cursor.execute("SELECT id FROM users WHERE LOWER(username) = LOWER(?)", (username,))
+    if cursor.fetchone():
+        conn.close()
+        return jsonify({'error': 'Tên đăng nhập này đã tồn tại, vui lòng chọn tên khác!'}), 400
+
+    hashed_pw = generate_password_hash(password)
+
     try:
         cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, hashed_pw))
         conn.commit()
@@ -185,11 +209,14 @@ def auth_register():
         return jsonify({'message': 'Đăng ký tài khoản thành công', 'username': username}), 201
     except sqlite3.IntegrityError:
         conn.close()
-        return jsonify({'error': 'Tên đăng nhập này đã tồn tại'}), 400
+        return jsonify({'error': 'Tên đăng nhập này đã tồn tại, vui lòng chọn tên khác!'}), 400
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': f'Lỗi tạo tài khoản: {str(e)}'}), 500
 
 @app.route('/api/auth/login', methods=['POST'])
 def auth_login():
-    data = request.get_json()
+    data = request.get_json() or {}
     username = data.get('username', '').strip()
     password = data.get('password', '').strip()
 
@@ -198,7 +225,7 @@ def auth_login():
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, password_hash FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT id, username, password_hash FROM users WHERE LOWER(username) = LOWER(?)", (username,))
     user = cursor.fetchone()
     conn.close()
 
