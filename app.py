@@ -204,7 +204,8 @@ def auth_login():
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username, password_hash FROM users WHERE username = ?", (username,))
+    # Tìm kiếm không phân biệt chữ hoa / chữ thường
+    cursor.execute("SELECT id, username, password_hash FROM users WHERE LOWER(username) = LOWER(?)", (username,))
     user = cursor.fetchone()
     conn.close()
 
@@ -229,7 +230,7 @@ def auth_reset_password():
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, username FROM users WHERE username = ?", (username,))
+    cursor.execute("SELECT id, username FROM users WHERE LOWER(username) = LOWER(?)", (username,))
     user = cursor.fetchone()
 
     if not user:
