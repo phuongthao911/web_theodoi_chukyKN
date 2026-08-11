@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi" data-theme="pink" data-dark="false">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,17 +10,21 @@
   <!-- Main CSS -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
+
 <body>
 
   <!-- Fullscreen Auth Screen (Chuyển đổi linh hoạt giữa Đăng Nhập & Đăng Ký để dùng trên ĐT và Máy Tính) -->
   <div class="modal-backdrop" id="authModal">
     <div class="modal-content lock-screen-box">
       <div class="lock-icon">🌸</div>
-      
+
       <!-- Tab chuyển đổi giữa Đăng Nhập & Đăng Ký -->
-      <div class="auth-tabs" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; background: var(--primary-light); padding: 4px; border-radius: 30px;">
-        <button type="button" class="tab-btn active" id="tabAuthLogin" style="flex: 1; padding: 8px;" onclick="switchAuthTab('login')">Đăng Nhập</button>
-        <button type="button" class="tab-btn" id="tabAuthRegister" style="flex: 1; padding: 8px;" onclick="switchAuthTab('register')">Đăng Ký</button>
+      <div class="auth-tabs"
+        style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; background: var(--primary-light); padding: 4px; border-radius: 30px;">
+        <button type="button" class="tab-btn active" id="tabAuthLogin" style="flex: 1; padding: 8px;"
+          onclick="switchAuthTab('login')">Đăng Nhập</button>
+        <button type="button" class="tab-btn" id="tabAuthRegister" style="flex: 1; padding: 8px;"
+          onclick="switchAuthTab('register')">Đăng Ký</button>
       </div>
 
       <!-- FORM ĐĂNG NHẬP -->
@@ -31,20 +36,28 @@
 
         <div class="form-group" style="text-align: left;">
           <label>Tên đăng nhập:</label>
-          <input type="text" id="loginUsername" class="form-control" placeholder="Tên đăng nhập..." oninput="clearFieldError('loginUsername')" onkeyup="if(event.key==='Enter') document.getElementById('loginPassword').focus()" autocomplete="off" required>
+          <input type="text" id="loginUsername" class="form-control" placeholder="Tên đăng nhập..."
+            oninput="clearFieldError('loginUsername')"
+            onkeyup="if(event.key==='Enter') document.getElementById('loginPassword').focus()" autocomplete="off"
+            required>
           <div class="field-error-text" id="loginUsernameError" style="display: none;"></div>
         </div>
 
         <div class="form-group" style="text-align: left;">
           <label>Mật khẩu:</label>
           <div class="password-wrapper">
-            <input type="password" id="loginPassword" class="form-control" placeholder="Mật khẩu..." oninput="clearFieldError('loginPassword')" onkeyup="if(event.key==='Enter') submitLogin()" autocomplete="off" required>
-            <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('loginPassword', this)">👁️</button>
+            <input type="password" id="loginPassword" class="form-control" placeholder="Mật khẩu..."
+              oninput="clearFieldError('loginPassword')" onkeyup="if(event.key==='Enter') submitLogin()"
+              autocomplete="off" required>
+            <button type="button" class="toggle-pw-btn"
+              onclick="togglePasswordVisibility('loginPassword', this)">👁️</button>
           </div>
           <div class="field-error-text" id="loginPasswordError" style="display: none;"></div>
         </div>
 
-        <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;" onclick="submitLogin()">🔓 Đăng Nhập</button>
+        <button class="btn btn-primary"
+          style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;"
+          onclick="submitLogin()">🔓 Đăng Nhập</button>
       </div>
 
       <!-- FORM ĐĂNG KÝ -->
@@ -56,15 +69,22 @@
 
         <div class="form-group" style="text-align: left;">
           <label>Tên đăng nhập mới:</label>
-          <input type="text" id="regUsername" class="form-control" placeholder="Ví dụ: phuongthao" oninput="clearFieldError('regUsername')" onkeyup="if(event.key==='Enter') document.getElementById('regPassword').focus()" autocomplete="off" required>
+          <input type="text" id="regUsername" class="form-control" placeholder="Ví dụ: phuongthao"
+            oninput="clearFieldError('regUsername')"
+            onkeyup="if(event.key==='Enter') document.getElementById('regPassword').focus()" autocomplete="off"
+            required>
           <div class="field-error-text" id="regUsernameError" style="display: none;"></div>
         </div>
 
         <div class="form-group" style="text-align: left;">
           <label>Mật khẩu (ít nhất 4 ký tự):</label>
           <div class="password-wrapper">
-            <input type="password" id="regPassword" class="form-control" placeholder="Tạo mật khẩu..." oninput="clearFieldError('regPassword')" onkeyup="if(event.key==='Enter') document.getElementById('regPasswordConfirm').focus()" autocomplete="off" required>
-            <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('regPassword', this)">👁️</button>
+            <input type="password" id="regPassword" class="form-control" placeholder="Tạo mật khẩu..."
+              oninput="clearFieldError('regPassword')"
+              onkeyup="if(event.key==='Enter') document.getElementById('regPasswordConfirm').focus()" autocomplete="off"
+              required>
+            <button type="button" class="toggle-pw-btn"
+              onclick="togglePasswordVisibility('regPassword', this)">👁️</button>
           </div>
           <div class="field-error-text" id="regPasswordError" style="display: none;"></div>
         </div>
@@ -72,13 +92,18 @@
         <div class="form-group" style="text-align: left;">
           <label>Xác nhận mật khẩu:</label>
           <div class="password-wrapper">
-            <input type="password" id="regPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..." oninput="clearFieldError('regPasswordConfirm')" onkeyup="if(event.key==='Enter') submitRegister()" autocomplete="off" required>
-            <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('regPasswordConfirm', this)">👁️</button>
+            <input type="password" id="regPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..."
+              oninput="clearFieldError('regPasswordConfirm')" onkeyup="if(event.key==='Enter') submitRegister()"
+              autocomplete="off" required>
+            <button type="button" class="toggle-pw-btn"
+              onclick="togglePasswordVisibility('regPasswordConfirm', this)">👁️</button>
           </div>
           <div class="field-error-text" id="regPasswordConfirmError" style="display: none;"></div>
         </div>
 
-        <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;" onclick="submitRegister()">✨ Tạo Tài Khoản & Bắt Đầu</button>
+        <button class="btn btn-primary"
+          style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;"
+          onclick="submitRegister()">✨ Tạo Tài Khoản & Bắt Đầu</button>
       </div>
 
     </div>
@@ -172,7 +197,7 @@
         <div class="card">
           <div class="card-header-flex">
             <div class="card-title" id="viewTitle">📅 Lịch Tháng</div>
-            
+
             <!-- View Tabs -->
             <div class="tab-group">
               <button class="tab-btn active" id="tabCal" onclick="switchView('calendar')">Lịch Tháng</button>
@@ -193,10 +218,18 @@
             </div>
 
             <div class="legend-grid">
-              <div class="legend-item"><div class="legend-badge period"></div> Hành kinh</div>
-              <div class="legend-item"><div class="legend-badge predicted"></div> Dự báo hành kinh (dải ±2d)</div>
-              <div class="legend-item"><div class="legend-badge ovulation"></div> Rụng trứng</div>
-              <div class="legend-item"><div class="legend-badge fertile"></div> Cửa sổ thụ thai</div>
+              <div class="legend-item">
+                <div class="legend-badge period"></div> Hành kinh
+              </div>
+              <div class="legend-item">
+                <div class="legend-badge predicted"></div> Dự báo hành kinh (dải ±2d)
+              </div>
+              <div class="legend-item">
+                <div class="legend-badge ovulation"></div> Rụng trứng
+              </div>
+              <div class="legend-item">
+                <div class="legend-badge fertile"></div> Cửa sổ thụ thai
+              </div>
             </div>
           </div>
 
@@ -245,9 +278,11 @@
             <label>Số ngày hành kinh mặc định (ngày):</label>
             <input type="number" id="settingAvgPeriod" class="form-control" value="5" min="2" max="10">
           </div>
-          <button class="btn btn-secondary" style="width: 100%; justify-content: center; margin-bottom: 12px;" onclick="saveSettings()">Lưu Tham Số</button>
+          <button class="btn btn-secondary" style="width: 100%; justify-content: center; margin-bottom: 12px;"
+            onclick="saveSettings()">Lưu Tham Số</button>
 
-          <button class="btn btn-secondary" style="width: 100%; justify-content: center; background: rgba(0,0,0,0.05);" onclick="openChangePasswordModal()">🔑 Đổi Mật Khẩu</button>
+          <button class="btn btn-secondary" style="width: 100%; justify-content: center; background: rgba(0,0,0,0.05);"
+            onclick="openChangePasswordModal()">🔑 Đổi Mật Khẩu</button>
         </div>
       </div>
     </div>
@@ -271,7 +306,8 @@
       </div>
       <div class="form-group">
         <label>Ghi chú thêm:</label>
-        <textarea id="cycleNotes" class="form-control" rows="2" placeholder="Ví dụ: Bắt đầu vào buổi sáng..."></textarea>
+        <textarea id="cycleNotes" class="form-control" rows="2"
+          placeholder="Ví dụ: Bắt đầu vào buổi sáng..."></textarea>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
         <button class="btn btn-secondary" onclick="closeModal('cycleModal')">Hủy</button>
@@ -305,7 +341,7 @@
         <select id="logMood" class="form-control">
           <option value="">Bình thường</option>
           <option value="happy">😊 Vui vẻ / Thoải mái</option>
-          <option value="sad">😢 Nhạy cảm / Buồn</option>
+          <option value="sad">😢 Mệt mỏi / Buồn</option>
           <option value="anxious">😰 Lo âu / Căng thẳng</option>
           <option value="energetic">⚡ Sung sức / Năng lượng</option>
         </select>
@@ -404,16 +440,20 @@
       <div class="form-group">
         <label>Mật khẩu hiện tại:</label>
         <div class="password-wrapper">
-          <input type="password" id="oldPassword" class="form-control" oninput="clearFieldError('oldPassword')" required>
-          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('oldPassword', this)">👁️</button>
+          <input type="password" id="oldPassword" class="form-control" oninput="clearFieldError('oldPassword')"
+            required>
+          <button type="button" class="toggle-pw-btn"
+            onclick="togglePasswordVisibility('oldPassword', this)">👁️</button>
         </div>
         <div class="field-error-text" id="oldPasswordError" style="display: none;"></div>
       </div>
       <div class="form-group">
         <label>Mật khẩu mới:</label>
         <div class="password-wrapper">
-          <input type="password" id="newPassword" class="form-control" oninput="clearFieldError('newPassword')" required>
-          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('newPassword', this)">👁️</button>
+          <input type="password" id="newPassword" class="form-control" oninput="clearFieldError('newPassword')"
+            required>
+          <button type="button" class="toggle-pw-btn"
+            onclick="togglePasswordVisibility('newPassword', this)">👁️</button>
         </div>
         <div class="field-error-text" id="newPasswordError" style="display: none;"></div>
       </div>
@@ -430,4 +470,5 @@
   <!-- Main JavaScript Application Logic -->
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
+
 </html>

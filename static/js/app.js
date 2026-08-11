@@ -10,6 +10,7 @@ let monthLogsMap = {};
 let yearLogsMap = {};
 let summaryData = null;
 let currentLogRatings = {};
+let isDailyLogReadOnly = false;
 
 let cycleChart = null;
 
@@ -596,7 +597,7 @@ function renderCalendar() {
       dayCell.appendChild(dot);
     }
 
-    dayCell.onclick = () => openDailyLogModal(dateStr);
+    dayCell.onclick = () => openDailyLogModal(dateStr, false);
     grid.appendChild(dayCell);
   }
 }
@@ -666,7 +667,7 @@ function renderHeatmap() {
         }
       }
       cell.setAttribute('data-level', level);
-      cell.onclick = () => openDailyLogModal(dateStr);
+      cell.onclick = () => openDailyLogModal(dateStr, true);
 
       daysGrid.appendChild(cell);
     }
@@ -677,23 +678,49 @@ function renderHeatmap() {
 }
 
 // --- DAILY SYMPTOM LOG MODAL & RATING 1-5 ---
-async function openDailyLogModal(dateStr) {
+async function openDailyLogModal(dateStr, isReadOnly = false) {
+  isDailyLogReadOnly = isReadOnly;
   document.getElementById('logDate').value = dateStr;
-  document.getElementById('logModalTitle').textContent = `Nhật Ký Ngày ${formatDateVN(dateStr)}`;
+  
+  const titlePrefix = isReadOnly ? '👀 Xem Nhật Ký' : 'Nhật Ký';
+  document.getElementById('logModalTitle').textContent = `${titlePrefix} Ngày ${formatDateVN(dateStr)}`;
 
-  document.getElementById('logFlowLevel').value = '';
-  document.getElementById('logMood').value = '';
-  document.getElementById('logNotes').value = '';
+  const badge = document.getElementById('logReadOnlyBadge');
+  if (badge) badge.style.display = isReadOnly ? 'block' : 'none';
+
+  const btnSave = document.getElementById('btnSaveDailyLog');
+  if (btnSave) btnSave.style.display = isReadOnly ? 'none' : 'inline-flex';
+
+  const btnClose = document.getElementById('btnCloseDailyLog');
+  if (btnClose) btnClose.textContent = isReadOnly ? 'Đóng' : 'Hủy';
+
+  const flowEl = document.getElementById('logFlowLevel');
+  const moodEl = document.getElementById('logMood');
+  const notesEl = document.getElementById('logNotes');
+
+  flowEl.value = '';
+  moodEl.value = '';
+  notesEl.value = '';
   currentLogRatings = {};
   resetStarRatingsUI();
+
+  flowEl.disabled = isReadOnly;
+  moodEl.disabled = isReadOnly;
+  notesEl.readOnly = isReadOnly;
+  notesEl.placeholder = isReadOnly ? 'Chưa có ghi chú...' : 'Nhập cảm nhận của bạn...';
+
+  document.querySelectorAll('#logModal .star-btn').forEach(btn => {
+    btn.style.cursor = isReadOnly ? 'default' : 'pointer';
+    btn.style.pointerEvents = isReadOnly ? 'none' : 'auto';
+  });
 
   try {
     const res = await fetch(`/api/logs?date=${dateStr}`);
     const log = await res.json();
     if (log) {
-      if (log.flow_level) document.getElementById('logFlowLevel').value = log.flow_level;
-      if (log.mood) document.getElementById('logMood').value = log.mood;
-      if (log.notes) document.getElementById('logNotes').value = log.notes;
+      if (log.flow_level) flowEl.value = log.flow_level;
+      if (log.mood) moodEl.value = log.mood;
+      if (log.notes) notesEl.value = log.notes;
       if (log.symptoms && typeof log.symptoms === 'object') {
         currentLogRatings = log.symptoms;
         updateStarRatingsUI();
@@ -707,6 +734,7 @@ async function openDailyLogModal(dateStr) {
 }
 
 function setRating(symptomKey, score) {
+  if (isDailyLogReadOnly) return;
   if (currentLogRatings[symptomKey] === score) {
     delete currentLogRatings[symptomKey];
   } else {
