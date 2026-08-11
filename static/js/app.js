@@ -26,6 +26,18 @@ function showToast(msg) {
   setTimeout(() => { toast.classList.remove('show'); }, 3000);
 }
 
+// Toggle Password Show/Hide
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁️';
+  }
+}
+
 // Modal Helpers
 function openModal(id) {
   document.getElementById(id).classList.add('show');

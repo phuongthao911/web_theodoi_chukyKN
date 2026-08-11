@@ -11,43 +11,52 @@
 </head>
 <body>
 
-  <!-- Fullscreen First-Time Setup Modal -->
+  <!-- Fullscreen First-Time Setup Modal (Chỉ xuất hiện lần đầu tiên sử dụng) -->
   <div class="modal-backdrop" id="setupModal">
     <div class="modal-content lock-screen-box">
       <div class="lock-icon">🌸</div>
-      <h2 style="margin-bottom: 8px;">Chào mừng bạn!</h2>
+      <h2 style="margin-bottom: 8px;">Thiết Lập Mật Khẩu</h2>
       <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
-        Vui lòng thiết lập mật khẩu cá nhân cho lần đầu sử dụng ứng dụng.
+        Vui lòng tạo mật khẩu bảo vệ ứng dụng cho lần đầu sử dụng.
       </p>
       <div class="form-group" style="text-align: left;">
-        <label>Tạo mật khẩu mới (tối thiểu 4 ký tự):</label>
-        <input type="password" id="setupPassword" class="form-control" placeholder="Mật khẩu của bạn..." required>
+        <label>Mật khẩu mới (ít nhất 4 ký tự):</label>
+        <div class="password-wrapper">
+          <input type="password" id="setupPassword" class="form-control" placeholder="Nhập mật khẩu của bạn..." required>
+          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('setupPassword', this)">👁️</button>
+        </div>
       </div>
       <div class="form-group" style="text-align: left;">
-        <label>Xác nhận mật khẩu:</label>
-        <input type="password" id="setupPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..." required>
+        <label>Xác nhận lại mật khẩu:</label>
+        <div class="password-wrapper">
+          <input type="password" id="setupPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..." required>
+          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('setupPasswordConfirm', this)">👁️</button>
+        </div>
       </div>
-      <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="submitSetup()">Tạo Mật Khẩu & Bắt Đầu</button>
+      <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="submitSetup()">Tạo Mật Khẩu & Vào App</button>
     </div>
   </div>
 
-  <!-- Fullscreen Lock Screen Modal -->
+  <!-- Fullscreen Lock / Login Screen (Đăng nhập đơn giản bằng Mật khẩu) -->
   <div class="modal-backdrop" id="lockModal">
     <div class="modal-content lock-screen-box">
-      <div class="lock-icon">🔒</div>
-      <h2 style="margin-bottom: 8px;">Ứng Dụng Đang Khóa</h2>
+      <div class="lock-icon">🔐</div>
+      <h2 style="margin-bottom: 8px;">Đăng Nhập</h2>
       <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
-        Nhập mật khẩu riêng tư để truy cập dữ liệu chu kỳ.
+        Nhập mật khẩu cá nhân để truy cập ứng dụng.
       </p>
       <div class="form-group" style="text-align: left;">
-        <label>Mật khẩu của bạn:</label>
-        <input type="password" id="lockPassword" class="form-control" placeholder="Nhập mật khẩu..." onkeyup="if(event.key==='Enter') submitLogin()">
+        <label>Mật khẩu truy cập:</label>
+        <div class="password-wrapper">
+          <input type="password" id="lockPassword" class="form-control" placeholder="Nhập mật khẩu..." onkeyup="if(event.key==='Enter') submitLogin()">
+          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('lockPassword', this)">👁️</button>
+        </div>
       </div>
-      <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="submitLogin()">Mở Khóa App</button>
+      <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 12px; font-size: 15px; padding: 12px;" onclick="submitLogin()">🔓 Đăng Nhập</button>
     </div>
   </div>
 
-  <!-- Main Container -->
+  <!-- Main Container (Chỉ hiển thị khi Đăng Nhập thành công) -->
   <div class="container" id="appMain" style="display: none;">
     <!-- Header -->
     <header>
@@ -122,7 +131,7 @@
           <div class="stat-icon">⏱️</div>
         </div>
         <div class="stat-value" id="statMedianCycle">28 ngày</div>
-        <div class="stat-subtitle" id="statAvgPeriod">Hành kinh: 5 ngày (3-6 kỳ gần đây)</div>
+        <div class="stat-subtitle" id="statAvgPeriod">Hành kinh: 5 ngày (3-6 kỳ gần nhất)</div>
       </div>
     </div>
 
@@ -366,11 +375,17 @@
       </div>
       <div class="form-group">
         <label>Mật khẩu hiện tại:</label>
-        <input type="password" id="oldPassword" class="form-control" required>
+        <div class="password-wrapper">
+          <input type="password" id="oldPassword" class="form-control" required>
+          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('oldPassword', this)">👁️</button>
+        </div>
       </div>
       <div class="form-group">
         <label>Mật khẩu mới:</label>
-        <input type="password" id="newPassword" class="form-control" required>
+        <div class="password-wrapper">
+          <input type="password" id="newPassword" class="form-control" required>
+          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('newPassword', this)">👁️</button>
+        </div>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
         <button class="btn btn-secondary" onclick="closeModal('changePasswordModal')">Hủy</button>

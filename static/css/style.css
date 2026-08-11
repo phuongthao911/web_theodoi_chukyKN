@@ -631,6 +631,31 @@ header {
   outline: none;
 }
 
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrapper .form-control {
+  padding-right: 42px;
+}
+
+.toggle-pw-btn {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.toggle-pw-btn:hover {
+  opacity: 1;
+}
+
 [data-dark="true"] .form-control {
   background: rgba(15, 23, 42, 0.6);
   color: #fff;
