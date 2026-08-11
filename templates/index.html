@@ -11,52 +11,75 @@
 </head>
 <body>
 
-  <!-- Fullscreen First-Time Setup Modal (Chỉ xuất hiện lần đầu tiên sử dụng) -->
-  <div class="modal-backdrop" id="setupModal">
+  <!-- Fullscreen Auth Screen (Chuyển đổi linh hoạt giữa Đăng Nhập & Đăng Ký để dùng trên ĐT và Máy Tính) -->
+  <div class="modal-backdrop" id="authModal">
     <div class="modal-content lock-screen-box">
       <div class="lock-icon">🌸</div>
-      <h2 style="margin-bottom: 8px;">Thiết Lập Mật Khẩu</h2>
-      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
-        Vui lòng tạo mật khẩu bảo vệ ứng dụng cho lần đầu sử dụng.
-      </p>
-      <div class="form-group" style="text-align: left;">
-        <label>Mật khẩu mới (ít nhất 4 ký tự):</label>
-        <div class="password-wrapper">
-          <input type="password" id="setupPassword" class="form-control" placeholder="Nhập mật khẩu của bạn..." required>
-          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('setupPassword', this)">👁️</button>
-        </div>
+      
+      <!-- Tab chuyển đổi giữa Đăng Nhập & Đăng Ký -->
+      <div class="auth-tabs" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; background: var(--primary-light); padding: 4px; border-radius: 30px;">
+        <button type="button" class="tab-btn active" id="tabAuthLogin" style="flex: 1; padding: 8px;" onclick="switchAuthTab('login')">Đăng Nhập</button>
+        <button type="button" class="tab-btn" id="tabAuthRegister" style="flex: 1; padding: 8px;" onclick="switchAuthTab('register')">Đăng Ký</button>
       </div>
-      <div class="form-group" style="text-align: left;">
-        <label>Xác nhận lại mật khẩu:</label>
-        <div class="password-wrapper">
-          <input type="password" id="setupPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..." required>
-          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('setupPasswordConfirm', this)">👁️</button>
+
+      <!-- FORM ĐĂNG NHẬP -->
+      <div id="formAuthLogin">
+        <h3 style="margin-bottom: 6px;">Chào mừng trở lại!</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+          Đăng nhập để đồng bộ dữ liệu trên ĐT & Máy tính.
+        </p>
+
+        <div class="form-group" style="text-align: left;">
+          <label>Tên đăng nhập:</label>
+          <input type="text" id="loginUsername" class="form-control" placeholder="Tên đăng nhập..." required>
         </div>
+
+        <div class="form-group" style="text-align: left;">
+          <label>Mật khẩu:</label>
+          <div class="password-wrapper">
+            <input type="password" id="loginPassword" class="form-control" placeholder="Mật khẩu..." onkeyup="if(event.key==='Enter') submitLogin()" required>
+            <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('loginPassword', this)">👁️</button>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;" onclick="submitLogin()">🔓 Đăng Nhập</button>
       </div>
-      <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="submitSetup()">Tạo Mật Khẩu & Vào App</button>
+
+      <!-- FORM ĐĂNG KÝ -->
+      <div id="formAuthRegister" style="display: none;">
+        <h3 style="margin-bottom: 6px;">Tạo Tài Khoản Mới</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+          Tạo tài khoản cá nhân để xem lại trên nhiều thiết bị.
+        </p>
+
+        <div class="form-group" style="text-align: left;">
+          <label>Tên đăng nhập mới:</label>
+          <input type="text" id="regUsername" class="form-control" placeholder="Ví dụ: phuongthao" required>
+        </div>
+
+        <div class="form-group" style="text-align: left;">
+          <label>Mật khẩu (ít nhất 4 ký tự):</label>
+          <div class="password-wrapper">
+            <input type="password" id="regPassword" class="form-control" placeholder="Tạo mật khẩu..." required>
+            <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('regPassword', this)">👁️</button>
+          </div>
+        </div>
+
+        <div class="form-group" style="text-align: left;">
+          <label>Xác nhận mật khẩu:</label>
+          <div class="password-wrapper">
+            <input type="password" id="regPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..." required>
+            <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('regPasswordConfirm', this)">👁️</button>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;" onclick="submitRegister()">✨ Tạo Tài Khoản & Bắt Đầu</button>
+      </div>
+
     </div>
   </div>
 
-  <!-- Fullscreen Lock / Login Screen (Đăng nhập đơn giản bằng Mật khẩu) -->
-  <div class="modal-backdrop" id="lockModal">
-    <div class="modal-content lock-screen-box">
-      <div class="lock-icon">🔐</div>
-      <h2 style="margin-bottom: 8px;">Đăng Nhập</h2>
-      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
-        Nhập mật khẩu cá nhân để truy cập ứng dụng.
-      </p>
-      <div class="form-group" style="text-align: left;">
-        <label>Mật khẩu truy cập:</label>
-        <div class="password-wrapper">
-          <input type="password" id="lockPassword" class="form-control" placeholder="Nhập mật khẩu..." onkeyup="if(event.key==='Enter') submitLogin()">
-          <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('lockPassword', this)">👁️</button>
-        </div>
-      </div>
-      <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 12px; font-size: 15px; padding: 12px;" onclick="submitLogin()">🔓 Đăng Nhập</button>
-    </div>
-  </div>
-
-  <!-- Main Container (Chỉ hiển thị khi Đăng Nhập thành công) -->
+  <!-- Main Container (Hiển thị khi Đăng Nhập thành công) -->
   <div class="container" id="appMain" style="display: none;">
     <!-- Header -->
     <header>
@@ -64,7 +87,7 @@
         <div class="brand-icon">🌸</div>
         <div>
           <h1>Chu Kỳ Của Tôi</h1>
-          <p style="font-size: 12px; color: var(--text-muted);">Sức khỏe & Dự báo chu kỳ cá nhân</p>
+          <p style="font-size: 12px; color: var(--text-muted);" id="userWelcomeText">Xin chào!</p>
         </div>
       </div>
 

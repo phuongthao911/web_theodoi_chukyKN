@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-# Hỗ trợ đường dẫn dữ liệu cố định trên Render (nếu gắn Persistent Disk) hoặc thư mục local
+# Đường dẫn đĩa lưu trữ (gắn đĩa cố định trên Render hoặc local)
 DATA_DIR = os.environ.get('DATA_DIR', os.path.dirname(__file__))
 os.makedirs(DATA_DIR, exist_ok=True)
 DB_NAME = os.path.join(DATA_DIR, 'period_tracker.db')
@@ -15,47 +15,59 @@ def init_db():
     conn = get_db()
     cursor = conn.cursor()
     
-    # Bảng lưu trữ chu kỳ kinh nguyệt
+    # Bảng người dùng (Hỗ trợ Đăng ký/Đăng nhập dùng nhiều thiết bị: ĐT + PC)
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS cycles (
+        CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            start_date TEXT NOT NULL,
-            end_date TEXT,
-            notes TEXT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # Bảng lưu trữ chu kỳ kinh nguyệt (gắn theo user_id)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cycles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+    ''')
     
-    # Bảng lưu trữ nhật ký triệu chứng hàng ngày
+    # Bảng lưu trữ nhật ký triệu chứng hàng ngày (gắn theo user_id)
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS daily_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            log_date TEXT UNIQUE NOT NULL,
+            user_id INTEGER NOT NULL,
+            log_date TEXT NOT NULL,
             flow_level TEXT,
             mood TEXT,
             symptoms TEXT,
             notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE(user_id, log_date)
         )
     ''')
     
-    # Bảng cài đặt & mật khẩu
+    # Bảng cài đặt riêng theo user_id
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id INTEGER NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            PRIMARY KEY (user_id, key),
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
     ''')
-    
-    # Cài đặt mặc định nếu chưa có
-    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('theme', 'pink')")
-    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('dark_mode', 'false')")
-    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('avg_cycle_length', '28')")
-    cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('avg_period_length', '5')")
     
     conn.commit()
     conn.close()
 
 if __name__ == '__main__':
     init_db()
-    print("Database initialized successfully at:", DB_NAME)
+    print("Database multi-user schema initialized successfully at:", DB_NAME)

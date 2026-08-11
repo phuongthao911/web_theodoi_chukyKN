@@ -20,27 +20,35 @@ else:
         f.write(random_key)
     app.secret_key = random_key
 
-# Đảm bảo Database luôn sẵn sàng
+# Khởi tạo Database
 init_db()
 
 # Decorator kiểm tra Đăng nhập
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get('logged_in'):
+        if not session.get('user_id'):
             return jsonify({'error': 'Yêu cầu đăng nhập'}), 401
         return f(*args, **kwargs)
     return decorated_function
 
-# Hàm hỗ trợ tính toán Thống kê & Trung vị (Median)
-def calculate_cycle_stats():
+# Hàm lấy cài đặt của user hiện tại
+def get_user_settings(user_id):
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM cycles ORDER BY start_date ASC")
+    cursor.execute("SELECT key, value FROM user_settings WHERE user_id = ?", (user_id,))
+    settings = {row['key']: row['value'] for row in cursor.fetchall()}
+    conn.close()
+    return settings
+
+# Hàm hỗ trợ tính toán Thống kê & Trung vị (Median) cho user
+def calculate_user_cycle_stats(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM cycles WHERE user_id = ? ORDER BY start_date ASC", (user_id,))
     cycles = [dict(row) for row in cursor.fetchall()]
     
-    cursor.execute("SELECT key, value FROM settings")
-    settings = {row['key']: row['value'] for row in cursor.fetchall()}
+    settings = get_user_settings(user_id)
     conn.close()
 
     default_cycle_len = int(settings.get('avg_cycle_length', 28))
@@ -137,64 +145,69 @@ def index():
 # --- AUTH API ENDPOINTS ---
 @app.route('/api/auth/status', methods=['GET'])
 def auth_status():
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT value FROM settings WHERE key = 'password_hash'")
-    row = cursor.fetchone()
-    conn.close()
-    
-    has_password = row is not None and len(row['value']) > 0
-    is_logged_in = session.get('logged_in', False)
-    
+    user_id = session.get('user_id')
+    username = session.get('username')
     return jsonify({
-        'has_password': has_password,
-        'is_logged_in': is_logged_in
+        'is_logged_in': bool(user_id),
+        'username': username if user_id else None
     })
 
-@app.route('/api/auth/setup', methods=['POST'])
-def auth_setup():
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT value FROM settings WHERE key = 'password_hash'")
-    row = cursor.fetchone()
-    
-    if row and len(row['value']) > 0:
-        conn.close()
-        return jsonify({'error': 'Mật khẩu đã được thiết lập từ trước'}), 400
-
+@app.route('/api/auth/register', methods=['POST'])
+def auth_register():
     data = request.get_json()
-    password = data.get('password')
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+
+    if not username or len(username) < 3:
+        return jsonify({'error': 'Tên đăng nhập phải từ 3 ký tự trở lên'}), 400
     if not password or len(password) < 4:
-        conn.close()
         return jsonify({'error': 'Mật khẩu phải từ 4 ký tự trở lên'}), 400
 
     hashed_pw = generate_password_hash(password)
-    cursor.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('password_hash', ?)", (hashed_pw,))
-    conn.commit()
-    conn.close()
 
-    session['logged_in'] = True
-    return jsonify({'message': 'Thiết lập mật khẩu thành công'})
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, hashed_pw))
+        conn.commit()
+        user_id = cursor.lastrowid
+
+        # Thiết lập cài đặt mặc định cho user
+        cursor.execute("INSERT INTO user_settings (user_id, key, value) VALUES (?, 'theme', 'pink')", (user_id,))
+        cursor.execute("INSERT INTO user_settings (user_id, key, value) VALUES (?, 'dark_mode', 'false')", (user_id,))
+        cursor.execute("INSERT INTO user_settings (user_id, key, value) VALUES (?, 'avg_cycle_length', '28')", (user_id,))
+        cursor.execute("INSERT INTO user_settings (user_id, key, value) VALUES (?, 'avg_period_length', '5')", (user_id,))
+        conn.commit()
+        conn.close()
+
+        session['user_id'] = user_id
+        session['username'] = username
+        return jsonify({'message': 'Đăng ký tài khoản thành công', 'username': username}), 201
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({'error': 'Tên đăng nhập này đã tồn tại'}), 400
 
 @app.route('/api/auth/login', methods=['POST'])
 def auth_login():
     data = request.get_json()
-    password = data.get('password', '')
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+
+    if not username or not password:
+        return jsonify({'error': 'Vui lòng nhập tên đăng nhập và mật khẩu'}), 400
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT value FROM settings WHERE key = 'password_hash'")
-    row = cursor.fetchone()
+    cursor.execute("SELECT id, username, password_hash FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
     conn.close()
 
-    if not row or not row['value']:
-        return jsonify({'error': 'Chưa thiết lập mật khẩu'}), 400
-
-    if check_password_hash(row['value'], password):
-        session['logged_in'] = True
-        return jsonify({'message': 'Đăng nhập thành công'})
+    if user and check_password_hash(user['password_hash'], password):
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        return jsonify({'message': 'Đăng nhập thành công', 'username': user['username']})
     else:
-        return jsonify({'error': 'Mật khẩu không chính xác'}), 401
+        return jsonify({'error': 'Tên đăng nhập hoặc mật khẩu không chính xác'}), 401
 
 @app.route('/api/auth/logout', methods=['POST'])
 def auth_logout():
@@ -204,36 +217,38 @@ def auth_logout():
 @app.route('/api/auth/change-password', methods=['POST'])
 @login_required
 def change_password():
+    user_id = session['user_id']
     data = request.get_json()
     old_pw = data.get('old_password', '')
     new_pw = data.get('new_password', '')
 
     if not new_pw or len(new_pw) < 4:
-        return jsonify({'error': 'Mật khẩu mới phải có ít nhất 4 ký tự'}), 400
+        return jsonify({'error': 'Mật khẩu mới phải từ 4 ký tự trở lên'}), 400
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT value FROM settings WHERE key = 'password_hash'")
-    row = cursor.fetchone()
+    cursor.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,))
+    user = cursor.fetchone()
 
-    if not row or not check_password_hash(row['value'], old_pw):
+    if not user or not check_password_hash(user['password_hash'], old_pw):
         conn.close()
         return jsonify({'error': 'Mật khẩu hiện tại không đúng'}), 400
 
     hashed_new = generate_password_hash(new_pw)
-    cursor.execute("UPDATE settings SET value = ? WHERE key = 'password_hash'", (hashed_new,))
+    cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hashed_new, user_id))
     conn.commit()
     conn.close()
 
     return jsonify({'message': 'Đổi mật khẩu thành công'})
 
-# --- DATA API ENDPOINTS ---
+# --- DATA API ENDPOINTS (Dữ liệu theo user_id) ---
 @app.route('/api/cycles', methods=['GET'])
 @login_required
 def get_cycles():
+    user_id = session['user_id']
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM cycles ORDER BY start_date DESC")
+    cursor.execute("SELECT * FROM cycles WHERE user_id = ? ORDER BY start_date DESC", (user_id,))
     cycles = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return jsonify(cycles)
@@ -241,6 +256,7 @@ def get_cycles():
 @app.route('/api/cycles', methods=['POST'])
 @login_required
 def add_cycle():
+    user_id = session['user_id']
     data = request.get_json()
     start_date = data.get('start_date')
     end_date = data.get('end_date')
@@ -252,8 +268,8 @@ def add_cycle():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO cycles (start_date, end_date, notes) VALUES (?, ?, ?)",
-        (start_date, end_date if end_date else None, notes)
+        "INSERT INTO cycles (user_id, start_date, end_date, notes) VALUES (?, ?, ?, ?)",
+        (user_id, start_date, end_date if end_date else None, notes)
     )
     conn.commit()
     cycle_id = cursor.lastrowid
@@ -263,6 +279,7 @@ def add_cycle():
 @app.route('/api/cycles/<int:cycle_id>', methods=['PUT'])
 @login_required
 def update_cycle(cycle_id):
+    user_id = session['user_id']
     data = request.get_json()
     start_date = data.get('start_date')
     end_date = data.get('end_date')
@@ -274,8 +291,8 @@ def update_cycle(cycle_id):
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE cycles SET start_date = ?, end_date = ?, notes = ? WHERE id = ?",
-        (start_date, end_date if end_date else None, notes, cycle_id)
+        "UPDATE cycles SET start_date = ?, end_date = ?, notes = ? WHERE id = ? AND user_id = ?",
+        (start_date, end_date if end_date else None, notes, cycle_id, user_id)
     )
     conn.commit()
     conn.close()
@@ -284,9 +301,10 @@ def update_cycle(cycle_id):
 @app.route('/api/cycles/<int:cycle_id>', methods=['DELETE'])
 @login_required
 def delete_cycle(cycle_id):
+    user_id = session['user_id']
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM cycles WHERE id = ?", (cycle_id,))
+    cursor.execute("DELETE FROM cycles WHERE id = ? AND user_id = ?", (cycle_id, user_id))
     conn.commit()
     conn.close()
     return jsonify({'message': 'Xóa kỳ kinh thành công'})
@@ -294,6 +312,7 @@ def delete_cycle(cycle_id):
 @app.route('/api/logs', methods=['GET'])
 @login_required
 def get_logs():
+    user_id = session['user_id']
     date_str = request.args.get('date')
     month_str = request.args.get('month')
     year_str = request.args.get('year')
@@ -302,7 +321,7 @@ def get_logs():
     cursor = conn.cursor()
     
     if date_str:
-        cursor.execute("SELECT * FROM daily_logs WHERE log_date = ?", (date_str,))
+        cursor.execute("SELECT * FROM daily_logs WHERE user_id = ? AND log_date = ?", (user_id, date_str))
         log = cursor.fetchone()
         conn.close()
         if log:
@@ -311,21 +330,21 @@ def get_logs():
             return jsonify(res)
         return jsonify(None)
     elif month_str:
-        cursor.execute("SELECT * FROM daily_logs WHERE log_date LIKE ?", (f"{month_str}%",))
+        cursor.execute("SELECT * FROM daily_logs WHERE user_id = ? AND log_date LIKE ?", (user_id, f"{month_str}%"))
         logs = [dict(row) for row in cursor.fetchall()]
         conn.close()
         for l in logs:
             l['symptoms'] = json.loads(l['symptoms']) if l['symptoms'] else {}
         return jsonify(logs)
     elif year_str:
-        cursor.execute("SELECT * FROM daily_logs WHERE log_date LIKE ?", (f"{year_str}%",))
+        cursor.execute("SELECT * FROM daily_logs WHERE user_id = ? AND log_date LIKE ?", (user_id, f"{year_str}%"))
         logs = [dict(row) for row in cursor.fetchall()]
         conn.close()
         for l in logs:
             l['symptoms'] = json.loads(l['symptoms']) if l['symptoms'] else {}
         return jsonify(logs)
     else:
-        cursor.execute("SELECT * FROM daily_logs ORDER BY log_date DESC")
+        cursor.execute("SELECT * FROM daily_logs WHERE user_id = ? ORDER BY log_date DESC", (user_id,))
         logs = [dict(row) for row in cursor.fetchall()]
         conn.close()
         for l in logs:
@@ -335,6 +354,7 @@ def get_logs():
 @app.route('/api/logs', methods=['POST'])
 @login_required
 def save_log():
+    user_id = session['user_id']
     data = request.get_json()
     log_date = data.get('log_date')
     flow_level = data.get('flow_level', '')
@@ -350,14 +370,14 @@ def save_log():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO daily_logs (log_date, flow_level, mood, symptoms, notes)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(log_date) DO UPDATE SET
+        INSERT INTO daily_logs (user_id, log_date, flow_level, mood, symptoms, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, log_date) DO UPDATE SET
             flow_level = excluded.flow_level,
             mood = excluded.mood,
             symptoms = excluded.symptoms,
             notes = excluded.notes
-    ''', (log_date, flow_level, mood, symptoms_json, notes))
+    ''', (user_id, log_date, flow_level, mood, symptoms_json, notes))
     conn.commit()
     conn.close()
     return jsonify({'message': 'Lưu nhật ký thành công'})
@@ -365,28 +385,26 @@ def save_log():
 @app.route('/api/summary', methods=['GET'])
 @login_required
 def get_summary():
-    stats = calculate_cycle_stats()
+    user_id = session['user_id']
+    stats = calculate_user_cycle_stats(user_id)
     return jsonify(stats)
 
 @app.route('/api/settings', methods=['GET'])
 @login_required
 def get_settings():
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT key, value FROM settings WHERE key != 'password_hash'")
-    settings = {row['key']: row['value'] for row in cursor.fetchall()}
-    conn.close()
+    user_id = session['user_id']
+    settings = get_user_settings(user_id)
     return jsonify(settings)
 
 @app.route('/api/settings', methods=['POST'])
 @login_required
 def update_settings():
+    user_id = session['user_id']
     data = request.get_json()
     conn = get_db()
     cursor = conn.cursor()
     for k, v in data.items():
-        if k != 'password_hash':
-            cursor.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?", (k, str(v), str(v)))
+        cursor.execute("INSERT INTO user_settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = ?", (user_id, k, str(v), str(v)))
     conn.commit()
     conn.close()
     return jsonify({'message': 'Cập nhật cài đặt thành công'})

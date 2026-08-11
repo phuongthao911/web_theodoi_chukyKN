@@ -3,13 +3,13 @@ let currentTheme = 'pink';
 let isDarkMode = false;
 let currentDate = new Date();
 let currentYear = currentDate.getFullYear();
-let currentMonth = currentDate.getMonth(); // 0 - 11
+let currentMonth = currentDate.getMonth();
 
 let cyclesData = [];
 let monthLogsMap = {};
 let yearLogsMap = {};
 let summaryData = null;
-let currentLogRatings = {}; // {"cramps": 3, "headache": 1, ...}
+let currentLogRatings = {};
 
 let cycleChart = null;
 
@@ -46,23 +46,40 @@ function closeModal(id) {
   document.getElementById(id).classList.remove('show');
 }
 
-// --- AUTHENTICATION FLOW ---
+// --- AUTHENTICATION & MULTI-DEVICE ACCOUNT FLOW ---
+function switchAuthTab(tab) {
+  const tabLogin = document.getElementById('tabAuthLogin');
+  const tabReg = document.getElementById('tabAuthRegister');
+  const formLogin = document.getElementById('formAuthLogin');
+  const formReg = document.getElementById('formAuthRegister');
+
+  if (tab === 'login') {
+    tabLogin.classList.add('active');
+    tabReg.classList.remove('active');
+    formLogin.style.display = 'block';
+    formReg.style.display = 'none';
+  } else {
+    tabReg.classList.add('active');
+    tabLogin.classList.remove('active');
+    formReg.style.display = 'block';
+    formLogin.style.display = 'none';
+  }
+}
+
 async function checkAuthStatus() {
   try {
     const res = await fetch('/api/auth/status');
     const data = await res.json();
 
-    document.getElementById('setupModal').classList.remove('show');
-    document.getElementById('lockModal').classList.remove('show');
+    document.getElementById('authModal').classList.remove('show');
     document.getElementById('appMain').style.display = 'none';
 
-    if (!data.has_password) {
-      openModal('setupModal');
-    } else if (!data.is_logged_in) {
-      openModal('lockModal');
-      document.getElementById('lockPassword').focus();
+    if (!data.is_logged_in) {
+      openModal('authModal');
+      document.getElementById('loginUsername').focus();
     } else {
       document.getElementById('appMain').style.display = 'block';
+      document.getElementById('userWelcomeText').textContent = `Tài khoản: ${data.username}`;
       await loadSettings();
       await loadAllData();
     }
@@ -71,10 +88,15 @@ async function checkAuthStatus() {
   }
 }
 
-async function submitSetup() {
-  const p1 = document.getElementById('setupPassword').value;
-  const p2 = document.getElementById('setupPasswordConfirm').value;
+async function submitRegister() {
+  const username = document.getElementById('regUsername').value.trim();
+  const p1 = document.getElementById('regPassword').value.trim();
+  const p2 = document.getElementById('regPasswordConfirm').value.trim();
 
+  if (!username || username.length < 3) {
+    alert("Tên đăng nhập phải có ít nhất 3 ký tự!");
+    return;
+  }
   if (!p1 || p1.length < 4) {
     alert("Mật khẩu phải từ 4 ký tự trở lên!");
     return;
@@ -85,17 +107,17 @@ async function submitSetup() {
   }
 
   try {
-    const res = await fetch('/api/auth/setup', {
+    const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: p1 })
+      body: JSON.stringify({ username, password: p1 })
     });
     const data = await res.json();
     if (res.ok) {
-      showToast("Khởi tạo mật khẩu thành công!");
+      showToast("Tạo tài khoản thành công!");
       checkAuthStatus();
     } else {
-      alert(data.error || "Lỗi thiết lập mật khẩu");
+      alert(data.error || "Lỗi đăng ký tài khoản");
     }
   } catch (err) {
     alert("Đã xảy ra lỗi kết nối");
@@ -103,22 +125,27 @@ async function submitSetup() {
 }
 
 async function submitLogin() {
-  const p = document.getElementById('lockPassword').value;
-  if (!p) return;
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value.trim();
+
+  if (!username || !password) {
+    alert("Vui lòng nhập tên đăng nhập và mật khẩu!");
+    return;
+  }
 
   try {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: p })
+      body: JSON.stringify({ username, password })
     });
     const data = await res.json();
     if (res.ok) {
-      document.getElementById('lockPassword').value = '';
+      document.getElementById('loginPassword').value = '';
       showToast("Đăng nhập thành công!");
       checkAuthStatus();
     } else {
-      alert(data.error || "Mật khẩu không chính xác");
+      alert(data.error || "Tên đăng nhập hoặc mật khẩu không đúng");
     }
   } catch (err) {
     alert("Đã xảy ra lỗi kết nối");
@@ -254,7 +281,6 @@ async function loadSummary() {
     const res = await fetch('/api/summary');
     summaryData = await res.json();
 
-    // Render Stats
     if (summaryData.next_period_start_min && summaryData.next_period_start_max) {
       const minD = formatDateVN(summaryData.next_period_start_min);
       const maxD = formatDateVN(summaryData.next_period_start_max);
@@ -280,7 +306,6 @@ async function loadSummary() {
     document.getElementById('statMedianCycle').textContent = `${summaryData.median_cycle_length} ngày`;
     document.getElementById('statAvgPeriod').textContent = `Hành kinh: ${summaryData.avg_period_length} ngày (3-6 kỳ gần nhất)`;
 
-    // Irregular alert badge
     const alertBox = document.getElementById('irregularAlert');
     if (summaryData.is_irregular && summaryData.irregular_message) {
       document.getElementById('irregularMsg').textContent = summaryData.irregular_message;
@@ -398,7 +423,6 @@ function renderCalendar() {
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-  // Day of week index (Monday = 0)
   let startingDay = firstDayOfMonth.getDay() - 1;
   if (startingDay === -1) startingDay = 6;
 
@@ -410,7 +434,6 @@ function renderCalendar() {
 
   const todayStr = formatDateISO(new Date());
 
-  // Sets for highlighting
   const periodDays = new Set();
   cyclesData.forEach(c => {
     if (c.start_date) {
@@ -567,7 +590,7 @@ async function openDailyLogModal(dateStr) {
 
 function setRating(symptomKey, score) {
   if (currentLogRatings[symptomKey] === score) {
-    delete currentLogRatings[symptomKey]; // Toggle off
+    delete currentLogRatings[symptomKey];
   } else {
     currentLogRatings[symptomKey] = score;
   }
