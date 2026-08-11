@@ -1,7 +1,10 @@
 import sqlite3
 import os
 
-DB_NAME = os.path.join(os.path.dirname(__file__), 'period_tracker.db')
+# Hỗ trợ đường dẫn dữ liệu cố định trên Render (nếu gắn Persistent Disk) hoặc thư mục local
+DATA_DIR = os.environ.get('DATA_DIR', os.path.dirname(__file__))
+os.makedirs(DATA_DIR, exist_ok=True)
+DB_NAME = os.path.join(DATA_DIR, 'period_tracker.db')
 
 def get_db():
     conn = sqlite3.connect(DB_NAME)
@@ -24,14 +27,13 @@ def init_db():
     ''')
     
     # Bảng lưu trữ nhật ký triệu chứng hàng ngày
-    # symptoms lưu dưới dạng mảng JSON hoặc chuỗi JSON: {"cramps": 3, "headache": 1, ...}
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS daily_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             log_date TEXT UNIQUE NOT NULL,
-            flow_level TEXT, -- light, medium, heavy, spotting
-            mood TEXT, -- happy, sad, moody, anxious, calm, energetic
-            symptoms TEXT, -- JSON string with symptom names and severity rating (1-5)
+            flow_level TEXT,
+            mood TEXT,
+            symptoms TEXT,
             notes TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -56,4 +58,4 @@ def init_db():
 
 if __name__ == '__main__':
     init_db()
-    print("Database initialized successfully.")
+    print("Database initialized successfully at:", DB_NAME)

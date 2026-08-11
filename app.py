@@ -3,21 +3,19 @@ import json
 import statistics
 from functools import wraps
 from datetime import datetime, timedelta
-# pyrefly: ignore [missing-import]
 from flask import Flask, render_template, request, jsonify, session
-# pyrefly: ignore [missing-import]
 from werkzeug.security import generate_password_hash, check_password_hash
-from database import get_db, init_db
+from database import get_db, init_db, DATA_DIR
 
 app = Flask(__name__)
 
 # Tự động tạo và quản lý Secret Key an toàn
-SECRET_FILE = os.path.join(os.path.dirname(__file__), 'secret_key.txt')
+SECRET_FILE = os.path.join(DATA_DIR, 'secret_key.txt')
 if os.path.exists(SECRET_FILE):
     with open(SECRET_FILE, 'r') as f:
         app.secret_key = f.read().strip()
 else:
-    random_key = os.urandom(24).hex()
+    random_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
     with open(SECRET_FILE, 'w') as f:
         f.write(random_key)
     app.secret_key = random_key
@@ -83,7 +81,6 @@ def calculate_cycle_stats():
             if 15 <= c_len <= 60:
                 cycle_lengths.append(c_len)
 
-    # Sử dụng Trung vị (Median) của 3-6 chu kỳ gần nhất
     recent_cycle_lengths = cycle_lengths[-6:] if len(cycle_lengths) >= 6 else cycle_lengths
     
     if recent_cycle_lengths:
@@ -93,7 +90,6 @@ def calculate_cycle_stats():
 
     avg_p_len = round(statistics.mean(period_lengths)) if period_lengths else default_period_len
 
-    # Kiểm tra chu kỳ bất thường (> 7 ngày so với median)
     is_irregular = False
     irregular_msg = None
     if len(recent_cycle_lengths) >= 2:
@@ -106,7 +102,6 @@ def calculate_cycle_stats():
             else:
                 irregular_msg = f"Chu kỳ gần nhất ({latest_c_len} ngày) ngắn hơn {diff} ngày so với trung vị thường lệ ({median_c_len} ngày)."
 
-    # Dự đoán ngày bắt đầu kỳ tiếp theo dạng KHOẢNG (±2 ngày)
     last_cycle = cycles[-1]
     last_start = datetime.strptime(last_cycle['start_date'], '%Y-%m-%d')
 
@@ -232,7 +227,7 @@ def change_password():
 
     return jsonify({'message': 'Đổi mật khẩu thành công'})
 
-# --- DATA API ENDPOINTS (Yêu cầu login) ---
+# --- DATA API ENDPOINTS ---
 @app.route('/api/cycles', methods=['GET'])
 @login_required
 def get_cycles():
@@ -300,8 +295,8 @@ def delete_cycle(cycle_id):
 @login_required
 def get_logs():
     date_str = request.args.get('date')
-    month_str = request.args.get('month') # YYYY-MM
-    year_str = request.args.get('year')   # YYYY
+    month_str = request.args.get('month')
+    year_str = request.args.get('year')
     
     conn = get_db()
     cursor = conn.cursor()
@@ -344,7 +339,7 @@ def save_log():
     log_date = data.get('log_date')
     flow_level = data.get('flow_level', '')
     mood = data.get('mood', '')
-    symptoms = data.get('symptoms', {}) # dict of symptom_key -> rating (1-5)
+    symptoms = data.get('symptoms', {})
     notes = data.get('notes', '')
 
     if not log_date:
@@ -397,4 +392,5 @@ def update_settings():
     return jsonify({'message': 'Cập nhật cài đặt thành công'})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
