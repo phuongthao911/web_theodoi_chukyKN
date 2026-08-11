@@ -1,0 +1,20 @@
+# Python & Environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+venv/
+ENV/
+
+# Local database & private keys (IMPORTANT for privacy & security)
+period_tracker.db
+secret_key.txt
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Agent brain artifacts / temporary files
+.system_generated/

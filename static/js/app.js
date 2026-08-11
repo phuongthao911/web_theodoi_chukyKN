@@ -1,0 +1,764 @@
+// State Variables
+let currentTheme = 'pink';
+let isDarkMode = false;
+let currentDate = new Date();
+let currentYear = currentDate.getFullYear();
+let currentMonth = currentDate.getMonth(); // 0 - 11
+
+let cyclesData = [];
+let monthLogsMap = {};
+let yearLogsMap = {};
+let summaryData = null;
+let currentLogRatings = {}; // {"cramps": 3, "headache": 1, ...}
+
+let cycleChart = null;
+
+// Initialize App on Page Load
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuthStatus();
+});
+
+// Toast notification
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => { toast.classList.remove('show'); }, 3000);
+}
+
+// Modal Helpers
+function openModal(id) {
+  document.getElementById(id).classList.add('show');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+// --- AUTHENTICATION FLOW ---
+async function checkAuthStatus() {
+  try {
+    const res = await fetch('/api/auth/status');
+    const data = await res.json();
+
+    document.getElementById('setupModal').classList.remove('show');
+    document.getElementById('lockModal').classList.remove('show');
+    document.getElementById('appMain').style.display = 'none';
+
+    if (!data.has_password) {
+      openModal('setupModal');
+    } else if (!data.is_logged_in) {
+      openModal('lockModal');
+      document.getElementById('lockPassword').focus();
+    } else {
+      document.getElementById('appMain').style.display = 'block';
+      await loadSettings();
+      await loadAllData();
+    }
+  } catch (err) {
+    console.error("Auth status error:", err);
+  }
+}
+
+async function submitSetup() {
+  const p1 = document.getElementById('setupPassword').value;
+  const p2 = document.getElementById('setupPasswordConfirm').value;
+
+  if (!p1 || p1.length < 4) {
+    alert("Mật khẩu phải từ 4 ký tự trở lên!");
+    return;
+  }
+  if (p1 !== p2) {
+    alert("Mật khẩu xác nhận không khớp!");
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: p1 })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast("Khởi tạo mật khẩu thành công!");
+      checkAuthStatus();
+    } else {
+      alert(data.error || "Lỗi thiết lập mật khẩu");
+    }
+  } catch (err) {
+    alert("Đã xảy ra lỗi kết nối");
+  }
+}
+
+async function submitLogin() {
+  const p = document.getElementById('lockPassword').value;
+  if (!p) return;
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: p })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      document.getElementById('lockPassword').value = '';
+      showToast("Đăng nhập thành công!");
+      checkAuthStatus();
+    } else {
+      alert(data.error || "Mật khẩu không chính xác");
+    }
+  } catch (err) {
+    alert("Đã xảy ra lỗi kết nối");
+  }
+}
+
+async function submitLogout() {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  showToast("Đã đăng xuất");
+  checkAuthStatus();
+}
+
+function openChangePasswordModal() {
+  document.getElementById('oldPassword').value = '';
+  document.getElementById('newPassword').value = '';
+  openModal('changePasswordModal');
+}
+
+async function submitChangePassword() {
+  const old_password = document.getElementById('oldPassword').value;
+  const new_password = document.getElementById('newPassword').value;
+
+  if (!old_password || !new_password) {
+    alert("Vui lòng điền đầy đủ các trường");
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old_password, new_password })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      closeModal('changePasswordModal');
+      showToast("Đổi mật khẩu thành công!");
+    } else {
+      alert(data.error || "Lỗi đổi mật khẩu");
+    }
+  } catch (err) {
+    alert("Đã xảy ra lỗi kết nối");
+  }
+}
+
+// --- THEME & DARK MODE CONTROL ---
+function setTheme(theme) {
+  currentTheme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-color') === theme);
+  });
+
+  saveSettingsToServer({ theme: theme });
+}
+
+function toggleDarkMode() {
+  isDarkMode = !isDarkMode;
+  document.documentElement.setAttribute('data-dark', isDarkMode ? 'true' : 'false');
+  document.getElementById('darkModeBtn').textContent = isDarkMode ? '☀️' : '🌙';
+
+  saveSettingsToServer({ dark_mode: isDarkMode ? 'true' : 'false' });
+}
+
+async function loadSettings() {
+  try {
+    const res = await fetch('/api/settings');
+    const settings = await res.json();
+
+    if (settings.theme) {
+      currentTheme = settings.theme;
+      document.documentElement.setAttribute('data-theme', currentTheme);
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-color') === currentTheme);
+      });
+    }
+
+    if (settings.dark_mode) {
+      isDarkMode = (settings.dark_mode === 'true');
+      document.documentElement.setAttribute('data-dark', isDarkMode ? 'true' : 'false');
+      document.getElementById('darkModeBtn').textContent = isDarkMode ? '☀️' : '🌙';
+    }
+
+    if (settings.avg_cycle_length) document.getElementById('settingAvgCycle').value = settings.avg_cycle_length;
+    if (settings.avg_period_length) document.getElementById('settingAvgPeriod').value = settings.avg_period_length;
+  } catch (err) {
+    console.error("Error loading settings:", err);
+  }
+}
+
+async function saveSettingsToServer(obj) {
+  try {
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(obj)
+    });
+  } catch (err) {
+    console.error("Save settings error:", err);
+  }
+}
+
+async function saveSettings() {
+  const avgC = document.getElementById('settingAvgCycle').value;
+  const avgP = document.getElementById('settingAvgPeriod').value;
+
+  await saveSettingsToServer({
+    avg_cycle_length: avgC,
+    avg_period_length: avgP
+  });
+
+  showToast("Lưu cài đặt thành công!");
+  loadAllData();
+}
+
+// --- DATA LOADING & RENDERING ---
+async function loadAllData() {
+  await Promise.all([
+    loadSummary(),
+    loadCycles(),
+    loadMonthLogs(),
+    loadYearLogs()
+  ]);
+
+  renderCalendar();
+  renderHeatmap();
+  renderChart();
+}
+
+async function loadSummary() {
+  try {
+    const res = await fetch('/api/summary');
+    summaryData = await res.json();
+
+    // Render Stats
+    if (summaryData.next_period_start_min && summaryData.next_period_start_max) {
+      const minD = formatDateVN(summaryData.next_period_start_min);
+      const maxD = formatDateVN(summaryData.next_period_start_max);
+      document.getElementById('statNextPeriodRange').textContent = `${minD} - ${maxD}`;
+    } else {
+      document.getElementById('statNextPeriodRange').textContent = "--/--";
+    }
+
+    if (summaryData.ovulation_date) {
+      document.getElementById('statOvulation').textContent = formatDateVN(summaryData.ovulation_date);
+    } else {
+      document.getElementById('statOvulation').textContent = "--/--";
+    }
+
+    if (summaryData.fertile_window_start && summaryData.fertile_window_end) {
+      const fStart = formatDateVN(summaryData.fertile_window_start);
+      const fEnd = formatDateVN(summaryData.fertile_window_end);
+      document.getElementById('statFertileRange').textContent = `${fStart} - ${fEnd}`;
+    } else {
+      document.getElementById('statFertileRange').textContent = "--/--";
+    }
+
+    document.getElementById('statMedianCycle').textContent = `${summaryData.median_cycle_length} ngày`;
+    document.getElementById('statAvgPeriod').textContent = `Hành kinh: ${summaryData.avg_period_length} ngày (3-6 kỳ gần nhất)`;
+
+    // Irregular alert badge
+    const alertBox = document.getElementById('irregularAlert');
+    if (summaryData.is_irregular && summaryData.irregular_message) {
+      document.getElementById('irregularMsg').textContent = summaryData.irregular_message;
+      alertBox.style.display = 'flex';
+    } else {
+      alertBox.style.display = 'none';
+    }
+  } catch (err) {
+    console.error("Summary load error:", err);
+  }
+}
+
+async function loadCycles() {
+  try {
+    const res = await fetch('/api/cycles');
+    cyclesData = await res.json();
+
+    const listEl = document.getElementById('cyclesList');
+    listEl.innerHTML = '';
+
+    if (cyclesData.length === 0) {
+      listEl.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px;">Chưa có dữ liệu kỳ kinh. Nhấp "+ Ghi mới" để tạo.</div>`;
+      return;
+    }
+
+    cyclesData.forEach(c => {
+      const item = document.createElement('div');
+      item.className = 'history-item';
+
+      const sDate = formatDateVN(c.start_date);
+      const eDate = c.end_date ? formatDateVN(c.end_date) : 'Đang tiếp diễn';
+
+      let durationText = '';
+      if (c.end_date) {
+        const d1 = new Date(c.start_date);
+        const d2 = new Date(c.end_date);
+        const days = Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+        durationText = `${days} ngày hành kinh`;
+      } else {
+        durationText = 'Đang diễn ra';
+      }
+
+      item.innerHTML = `
+        <div class="history-info">
+          <div class="history-dates">${sDate} ➔ ${eDate}</div>
+          <div class="history-sub">${durationText} ${c.notes ? '• ' + escapeHtml(c.notes) : ''}</div>
+        </div>
+        <div class="history-actions">
+          <button class="btn-icon-small" title="Sửa" onclick="openEditCycleModal(${c.id})">✏️</button>
+          <button class="btn-icon-small" title="Xóa" onclick="deleteCycle(${c.id})">🗑️</button>
+        </div>
+      `;
+      listEl.appendChild(item);
+    });
+  } catch (err) {
+    console.error("Cycles load error:", err);
+  }
+}
+
+async function loadMonthLogs() {
+  const mStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+  try {
+    const res = await fetch(`/api/logs?month=${mStr}`);
+    const logs = await res.json();
+    monthLogsMap = {};
+    if (logs && Array.isArray(logs)) {
+      logs.forEach(l => { monthLogsMap[l.log_date] = l; });
+    }
+  } catch (err) {
+    console.error("Month logs error:", err);
+  }
+}
+
+async function loadYearLogs() {
+  try {
+    const res = await fetch(`/api/logs?year=${currentYear}`);
+    const logs = await res.json();
+    yearLogsMap = {};
+    if (logs && Array.isArray(logs)) {
+      logs.forEach(l => { yearLogsMap[l.log_date] = l; });
+    }
+  } catch (err) {
+    console.error("Year logs error:", err);
+  }
+}
+
+// --- CALENDAR RENDERER ---
+function changeMonth(delta) {
+  currentMonth += delta;
+  if (currentMonth < 0) {
+    currentMonth = 11;
+    currentYear -= 1;
+  } else if (currentMonth > 11) {
+    currentMonth = 0;
+    currentYear += 1;
+  }
+  loadMonthLogs().then(() => renderCalendar());
+}
+
+function renderCalendar() {
+  const titleEl = document.getElementById('calendarMonthYear');
+  titleEl.textContent = `Tháng ${currentMonth + 1} năm ${currentYear}`;
+
+  const grid = document.getElementById('calendarGrid');
+  grid.innerHTML = '';
+
+  const dayHeaders = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  dayHeaders.forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'day-header';
+    el.textContent = h;
+    grid.appendChild(el);
+  });
+
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+  // Day of week index (Monday = 0)
+  let startingDay = firstDayOfMonth.getDay() - 1;
+  if (startingDay === -1) startingDay = 6;
+
+  for (let i = 0; i < startingDay; i++) {
+    const emptyCell = document.createElement('div');
+    emptyCell.className = 'calendar-day empty';
+    grid.appendChild(emptyCell);
+  }
+
+  const todayStr = formatDateISO(new Date());
+
+  // Sets for highlighting
+  const periodDays = new Set();
+  cyclesData.forEach(c => {
+    if (c.start_date) {
+      let curr = new Date(c.start_date);
+      const end = c.end_date ? new Date(c.end_date) : new Date(c.start_date);
+      while (curr <= end) {
+        periodDays.add(formatDateISO(curr));
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+  });
+
+  let predictedMin = summaryData ? summaryData.next_period_start_min : null;
+  let predictedMax = summaryData ? summaryData.next_period_start_max : null;
+  let ovulationDate = summaryData ? summaryData.ovulation_date : null;
+  let fertileStart = summaryData ? summaryData.fertile_window_start : null;
+  let fertileEnd = summaryData ? summaryData.fertile_window_end : null;
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const cellDate = new Date(currentYear, currentMonth, day);
+    const dateStr = formatDateISO(cellDate);
+
+    const dayCell = document.createElement('div');
+    dayCell.className = 'calendar-day';
+    dayCell.textContent = day;
+
+    if (dateStr === todayStr) dayCell.classList.add('today');
+
+    if (periodDays.has(dateStr)) {
+      dayCell.classList.add('period');
+    } else if (dateStr === ovulationDate) {
+      dayCell.classList.add('ovulation');
+    } else if (fertileStart && fertileEnd && dateStr >= fertileStart && dateStr <= fertileEnd) {
+      dayCell.classList.add('fertile');
+    } else if (predictedMin && predictedMax && dateStr >= predictedMin && dateStr <= predictedMax) {
+      dayCell.classList.add('predicted');
+    }
+
+    if (monthLogsMap[dateStr]) {
+      const dot = document.createElement('div');
+      dot.className = 'day-dot';
+      dayCell.appendChild(dot);
+    }
+
+    dayCell.onclick = () => openDailyLogModal(dateStr);
+    grid.appendChild(dayCell);
+  }
+}
+
+// --- YEARLY HEATMAP RENDERER ---
+function switchView(view) {
+  const calView = document.getElementById('calendarView');
+  const hmView = document.getElementById('heatmapView');
+  const tabCal = document.getElementById('tabCal');
+  const tabHm = document.getElementById('tabHm');
+  const titleEl = document.getElementById('viewTitle');
+
+  if (view === 'calendar') {
+    calView.style.display = 'block';
+    hmView.style.display = 'none';
+    tabCal.classList.add('active');
+    tabHm.classList.remove('active');
+    titleEl.textContent = '📅 Lịch Tháng';
+  } else {
+    calView.style.display = 'none';
+    hmView.style.display = 'block';
+    tabCal.classList.remove('active');
+    tabHm.classList.add('active');
+    titleEl.textContent = `🔥 Heatmap Năm ${currentYear}`;
+    renderHeatmap();
+  }
+}
+
+function renderHeatmap() {
+  const container = document.getElementById('heatmapContainer');
+  container.innerHTML = '';
+
+  const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+
+  for (let m = 0; m < 12; m++) {
+    const monthBox = document.createElement('div');
+    monthBox.className = 'heatmap-month';
+
+    const title = document.createElement('div');
+    title.className = 'heatmap-month-title';
+    title.textContent = monthNames[m];
+    monthBox.appendChild(title);
+
+    const daysGrid = document.createElement('div');
+    daysGrid.className = 'heatmap-days-grid';
+
+    const daysInM = new Date(currentYear, m + 1, 0).getDate();
+
+    for (let d = 1; d <= daysInM; d++) {
+      const dateStr = `${currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const cell = document.createElement('div');
+      cell.className = 'hm-cell';
+      cell.title = dateStr;
+
+      const log = yearLogsMap[dateStr];
+      let level = 0;
+      if (log) {
+        level = 1;
+        if (log.flow_level === 'light' || log.flow_level === 'spotting') level = 2;
+        if (log.flow_level === 'medium') level = 3;
+        if (log.flow_level === 'heavy') level = 4;
+
+        if (log.symptoms && typeof log.symptoms === 'object') {
+          const maxRating = Math.max(0, ...Object.values(log.symptoms));
+          if (maxRating >= 4) level = 4;
+          else if (maxRating >= 3 && level < 3) level = 3;
+        }
+      }
+      cell.setAttribute('data-level', level);
+      cell.onclick = () => openDailyLogModal(dateStr);
+
+      daysGrid.appendChild(cell);
+    }
+
+    monthBox.appendChild(daysGrid);
+    container.appendChild(monthBox);
+  }
+}
+
+// --- DAILY SYMPTOM LOG MODAL & RATING 1-5 ---
+async function openDailyLogModal(dateStr) {
+  document.getElementById('logDate').value = dateStr;
+  document.getElementById('logModalTitle').textContent = `Nhật Ký Ngày ${formatDateVN(dateStr)}`;
+
+  document.getElementById('logFlowLevel').value = '';
+  document.getElementById('logMood').value = '';
+  document.getElementById('logNotes').value = '';
+  currentLogRatings = {};
+  resetStarRatingsUI();
+
+  try {
+    const res = await fetch(`/api/logs?date=${dateStr}`);
+    const log = await res.json();
+    if (log) {
+      if (log.flow_level) document.getElementById('logFlowLevel').value = log.flow_level;
+      if (log.mood) document.getElementById('logMood').value = log.mood;
+      if (log.notes) document.getElementById('logNotes').value = log.notes;
+      if (log.symptoms && typeof log.symptoms === 'object') {
+        currentLogRatings = log.symptoms;
+        updateStarRatingsUI();
+      }
+    }
+  } catch (err) {
+    console.error("Log fetch error:", err);
+  }
+
+  openModal('logModal');
+}
+
+function setRating(symptomKey, score) {
+  if (currentLogRatings[symptomKey] === score) {
+    delete currentLogRatings[symptomKey]; // Toggle off
+  } else {
+    currentLogRatings[symptomKey] = score;
+  }
+  updateStarRatingsUI();
+}
+
+function resetStarRatingsUI() {
+  document.querySelectorAll('.rating-stars').forEach(group => {
+    group.querySelectorAll('.star-btn').forEach(btn => btn.classList.remove('active'));
+  });
+}
+
+function updateStarRatingsUI() {
+  resetStarRatingsUI();
+  Object.keys(currentLogRatings).forEach(sym => {
+    const val = currentLogRatings[sym];
+    const group = document.querySelector(`.rating-stars[data-symptom="${sym}"]`);
+    if (group) {
+      group.querySelectorAll('.star-btn').forEach(btn => {
+        if (parseInt(btn.textContent) === val) {
+          btn.classList.add('active');
+        }
+      });
+    }
+  });
+}
+
+async function saveDailyLog() {
+  const log_date = document.getElementById('logDate').value;
+  const flow_level = document.getElementById('logFlowLevel').value;
+  const mood = document.getElementById('logMood').value;
+  const notes = document.getElementById('logNotes').value;
+
+  try {
+    const res = await fetch('/api/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        log_date,
+        flow_level,
+        mood,
+        symptoms: currentLogRatings,
+        notes
+      })
+    });
+    if (res.ok) {
+      closeModal('logModal');
+      showToast("Lưu nhật ký ngày thành công!");
+      await loadMonthLogs();
+      await loadYearLogs();
+      renderCalendar();
+      renderHeatmap();
+    }
+  } catch (err) {
+    alert("Đã xảy ra lỗi khi lưu nhật ký");
+  }
+}
+
+// --- CYCLE ADD / EDIT / DELETE MODAL ---
+function openAddCycleModal() {
+  document.getElementById('cycleId').value = '';
+  document.getElementById('cycleModalTitle').textContent = 'Thêm Kỳ Kinh Nguyệt';
+  document.getElementById('cycleStartDate').value = formatDateISO(new Date());
+  document.getElementById('cycleEndDate').value = '';
+  document.getElementById('cycleNotes').value = '';
+  openModal('cycleModal');
+}
+
+function openEditCycleModal(id) {
+  const c = cyclesData.find(item => item.id === id);
+  if (!c) return;
+
+  document.getElementById('cycleId').value = c.id;
+  document.getElementById('cycleModalTitle').textContent = 'Sửa Kỳ Kinh Nguyệt';
+  document.getElementById('cycleStartDate').value = c.start_date;
+  document.getElementById('cycleEndDate').value = c.end_date || '';
+  document.getElementById('cycleNotes').value = c.notes || '';
+  openModal('cycleModal');
+}
+
+async function saveCycle() {
+  const id = document.getElementById('cycleId').value;
+  const start_date = document.getElementById('cycleStartDate').value;
+  const end_date = document.getElementById('cycleEndDate').value;
+  const notes = document.getElementById('cycleNotes').value;
+
+  if (!start_date) {
+    alert("Ngày bắt đầu là bắt buộc!");
+    return;
+  }
+
+  const url = id ? `/api/cycles/${id}` : '/api/cycles';
+  const method = id ? 'PUT' : 'POST';
+
+  try {
+    const res = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start_date, end_date, notes })
+    });
+    if (res.ok) {
+      closeModal('cycleModal');
+      showToast(id ? "Cập nhật kỳ kinh thành công!" : "Thêm kỳ kinh thành công!");
+      loadAllData();
+    } else {
+      const d = await res.json();
+      alert(d.error || "Lỗi lưu kỳ kinh");
+    }
+  } catch (err) {
+    alert("Đã xảy ra lỗi kết nối");
+  }
+}
+
+async function deleteCycle(id) {
+  if (!confirm("Bạn có chắc chắn muốn xóa kỳ kinh nguyệt này không?")) return;
+
+  try {
+    const res = await fetch(`/api/cycles/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      showToast("Đã xóa kỳ kinh!");
+      loadAllData();
+    }
+  } catch (err) {
+    alert("Đã xảy ra lỗi khi xóa");
+  }
+}
+
+// --- CHART.JS VISUALIZATION ---
+function renderChart() {
+  const ctx = document.getElementById('cycleChart').getContext('2d');
+
+  if (cyclesData.length < 2) {
+    if (cycleChart) cycleChart.destroy();
+    return;
+  }
+
+  const labels = [];
+  const lengths = [];
+
+  const sortedCycles = [...cyclesData].sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+
+  for (let i = 1; i < sortedCycles.length; i++) {
+    const prev = new Date(sortedCycles[i - 1].start_date);
+    const curr = new Date(sortedCycles[i].start_date);
+    const len = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
+    if (len >= 15 && len <= 60) {
+      labels.push(formatDateVN(sortedCycles[i].start_date));
+      lengths.push(len);
+    }
+  }
+
+  if (cycleChart) cycleChart.destroy();
+
+  cycleChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Độ dài chu kỳ (ngày)',
+        data: lengths,
+        borderColor: '#f4acb7',
+        backgroundColor: 'rgba(244, 172, 183, 0.2)',
+        borderWidth: 3,
+        tension: 0.3,
+        fill: true,
+        pointRadius: 5,
+        pointHoverRadius: 7
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          min: 20,
+          max: 40,
+          ticks: { stepSize: 2 }
+        }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+}
+
+// --- UTILITY FUNCTIONS ---
+function formatDateISO(dateObj) {
+  const y = dateObj.getFullYear();
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function formatDateVN(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}`;
+  }
+  return dateStr;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}

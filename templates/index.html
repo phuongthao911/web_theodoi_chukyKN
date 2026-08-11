@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="pink" data-dark="false">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Theo Dõi Chu Kỳ Kinh Nguyệt Cá Nhân</title>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- Fullscreen First-Time Setup Modal -->
+  <div class="modal-backdrop" id="setupModal">
+    <div class="modal-content lock-screen-box">
+      <div class="lock-icon">🌸</div>
+      <h2 style="margin-bottom: 8px;">Chào mừng bạn!</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+        Vui lòng thiết lập mật khẩu cá nhân cho lần đầu sử dụng ứng dụng.
+      </p>
+      <div class="form-group" style="text-align: left;">
+        <label>Tạo mật khẩu mới (tối thiểu 4 ký tự):</label>
+        <input type="password" id="setupPassword" class="form-control" placeholder="Mật khẩu của bạn..." required>
+      </div>
+      <div class="form-group" style="text-align: left;">
+        <label>Xác nhận mật khẩu:</label>
+        <input type="password" id="setupPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..." required>
+      </div>
+      <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="submitSetup()">Tạo Mật Khẩu & Bắt Đầu</button>
+    </div>
+  </div>
+
+  <!-- Fullscreen Lock Screen Modal -->
+  <div class="modal-backdrop" id="lockModal">
+    <div class="modal-content lock-screen-box">
+      <div class="lock-icon">🔒</div>
+      <h2 style="margin-bottom: 8px;">Ứng Dụng Đang Khóa</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+        Nhập mật khẩu riêng tư để truy cập dữ liệu chu kỳ.
+      </p>
+      <div class="form-group" style="text-align: left;">
+        <label>Mật khẩu của bạn:</label>
+        <input type="password" id="lockPassword" class="form-control" placeholder="Nhập mật khẩu..." onkeyup="if(event.key==='Enter') submitLogin()">
+      </div>
+      <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;" onclick="submitLogin()">Mở Khóa App</button>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="container" id="appMain" style="display: none;">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <div class="brand-icon">🌸</div>
+        <div>
+          <h1>Chu Kỳ Của Tôi</h1>
+          <p style="font-size: 12px; color: var(--text-muted);">Sức khỏe & Dự báo chu kỳ cá nhân</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Pastel Theme Switcher -->
+        <div class="theme-selector">
+          <div class="theme-options">
+            <button class="theme-btn active" data-color="pink" title="Hồng Pastel" onclick="setTheme('pink')"></button>
+            <button class="theme-btn" data-color="blue" title="Xanh Dương Pastel" onclick="setTheme('blue')"></button>
+            <button class="theme-btn" data-color="green" title="Xanh Lá Pastel" onclick="setTheme('green')"></button>
+            <button class="theme-btn" data-color="yellow" title="Vàng Pastel" onclick="setTheme('yellow')"></button>
+          </div>
+        </div>
+
+        <!-- Dark Mode Toggle Button -->
+        <button class="icon-btn" id="darkModeBtn" title="Bật/Tắt Chế độ Ban Đêm" onclick="toggleDarkMode()">🌙</button>
+
+        <!-- Logout Button -->
+        <button class="icon-btn" title="Đăng xuất" onclick="submitLogout()">🚪</button>
+      </div>
+    </header>
+
+    <!-- Irregular Cycle Alert Banner (If Any) -->
+    <div class="alert-box" id="irregularAlert" style="display: none;">
+      <span style="font-size: 20px;">💡</span>
+      <div>
+        <strong style="display: block;">Lưu ý về nhịp chu kỳ:</strong>
+        <span id="irregularMsg">Chu kỳ gần nhất có sự biến động khác biệt so với thói quen của bạn.</span>
+      </div>
+    </div>
+
+    <!-- Dashboard Stat Cards -->
+    <div class="dashboard-grid">
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>DỰ BÁO KỲ TIẾP THEO</span>
+          <div class="stat-icon">📅</div>
+        </div>
+        <div class="stat-value" id="statNextPeriodRange" style="font-size: 20px;">--/--</div>
+        <div class="stat-subtitle" id="statNextPeriodSub">Dải dự kiến (±2 ngày)</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>DỰ KIẾN RỤNG TRỨNG</span>
+          <div class="stat-icon">✨</div>
+        </div>
+        <div class="stat-value" id="statOvulation">--/--</div>
+        <div class="stat-subtitle">Ngày rụng trứng ước tính</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>CỬA SỔ THỤ THAI</span>
+          <div class="stat-icon">🌱</div>
+        </div>
+        <div class="stat-value" id="statFertileRange" style="font-size: 18px;">--/--</div>
+        <div class="stat-subtitle">Khả năng thụ thai cao</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span>CHU KỲ TRUNG VỊ</span>
+          <div class="stat-icon">⏱️</div>
+        </div>
+        <div class="stat-value" id="statMedianCycle">28 ngày</div>
+        <div class="stat-subtitle" id="statAvgPeriod">Hành kinh: 5 ngày (3-6 kỳ gần đây)</div>
+      </div>
+    </div>
+
+    <!-- Main Layout Grid -->
+    <div class="main-layout">
+      <!-- Left Column: Views & Graph -->
+      <div class="left-col">
+
+        <!-- Card Container with Tab Switcher -->
+        <div class="card">
+          <div class="card-header-flex">
+            <div class="card-title" id="viewTitle">📅 Lịch Tháng</div>
+            
+            <!-- View Tabs -->
+            <div class="tab-group">
+              <button class="tab-btn active" id="tabCal" onclick="switchView('calendar')">Lịch Tháng</button>
+              <button class="tab-btn" id="tabHm" onclick="switchView('heatmap')">Heatmap Cả Năm</button>
+            </div>
+          </div>
+
+          <!-- Monthly Calendar View -->
+          <div id="calendarView">
+            <div class="calendar-nav">
+              <button class="icon-btn" onclick="changeMonth(-1)">❮</button>
+              <div style="font-size: 18px; font-weight: 700;" id="calendarMonthYear">Tháng -- năm ----</div>
+              <button class="icon-btn" onclick="changeMonth(1)">❯</button>
+            </div>
+
+            <div class="calendar-grid" id="calendarGrid">
+              <!-- Rendered via JS -->
+            </div>
+
+            <div class="legend-grid">
+              <div class="legend-item"><div class="legend-badge period"></div> Hành kinh</div>
+              <div class="legend-item"><div class="legend-badge predicted"></div> Dự báo hành kinh (dải ±2d)</div>
+              <div class="legend-item"><div class="legend-badge ovulation"></div> Rụng trứng</div>
+              <div class="legend-item"><div class="legend-badge fertile"></div> Cửa sổ thụ thai</div>
+            </div>
+          </div>
+
+          <!-- Yearly Heatmap View (GitHub Style) -->
+          <div id="heatmapView" style="display: none;">
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+              Tổng quan 12 tháng: Sắc độ ô thể hiện mức độ tổng hợp của triệu chứng & lượng máu.
+            </p>
+            <div class="heatmap-container" id="heatmapContainer">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Cycle Length Graph Card -->
+        <div class="card">
+          <div class="card-title">📊 Xu hướng độ dài chu kỳ</div>
+          <div style="height: 220px; position: relative;">
+            <canvas id="cycleChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Cycles History & Settings -->
+      <div class="right-col">
+        <!-- Past Cycles Card -->
+        <div class="card">
+          <div class="card-header-flex">
+            <div class="card-title">🩸 Lịch Sử Kỳ Kinh</div>
+            <button class="btn btn-primary" onclick="openAddCycleModal()">+ Ghi mới</button>
+          </div>
+
+          <div class="history-list" id="cyclesList">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Quick Settings & Change Password Card -->
+        <div class="card">
+          <div class="card-title">⚙️ Cài Đặt & Mật Khẩu</div>
+          <div class="form-group">
+            <label>Độ dài chu kỳ mặc định (ngày):</label>
+            <input type="number" id="settingAvgCycle" class="form-control" value="28" min="20" max="45">
+          </div>
+          <div class="form-group">
+            <label>Số ngày hành kinh mặc định (ngày):</label>
+            <input type="number" id="settingAvgPeriod" class="form-control" value="5" min="2" max="10">
+          </div>
+          <button class="btn btn-secondary" style="width: 100%; justify-content: center; margin-bottom: 12px;" onclick="saveSettings()">Lưu Tham Số</button>
+
+          <button class="btn btn-secondary" style="width: 100%; justify-content: center; background: rgba(0,0,0,0.05);" onclick="openChangePasswordModal()">🔑 Đổi Mật Khẩu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add/Edit Cycle -->
+  <div class="modal-backdrop" id="cycleModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="card-title" id="cycleModalTitle">Thêm Kỳ Kinh Nguyệt</div>
+        <button class="close-btn" onclick="closeModal('cycleModal')">✕</button>
+      </div>
+      <input type="hidden" id="cycleId">
+      <div class="form-group">
+        <label>Ngày bắt đầu (*):</label>
+        <input type="date" id="cycleStartDate" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label>Ngày kết thúc (tùy chọn):</label>
+        <input type="date" id="cycleEndDate" class="form-control">
+      </div>
+      <div class="form-group">
+        <label>Ghi chú thêm:</label>
+        <textarea id="cycleNotes" class="form-control" rows="2" placeholder="Ví dụ: Bắt đầu vào buổi sáng..."></textarea>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+        <button class="btn btn-secondary" onclick="closeModal('cycleModal')">Hủy</button>
+        <button class="btn btn-primary" onclick="saveCycle()">Lưu Kỳ Kinh</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Daily Symptom Log (With 1-5 Ratings) -->
+  <div class="modal-backdrop" id="logModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="card-title" id="logModalTitle">Nhật Ký Ngày</div>
+        <button class="close-btn" onclick="closeModal('logModal')">✕</button>
+      </div>
+      <input type="hidden" id="logDate">
+
+      <div class="form-group">
+        <label>Lượng máu (Flow):</label>
+        <select id="logFlowLevel" class="form-control">
+          <option value="">Không có / Không nhập</option>
+          <option value="spotting">🩸 Vệt / Rất nhẹ</option>
+          <option value="light">🩸🩸 Nhẹ</option>
+          <option value="medium">🩸🩸🩸 Trung bình</option>
+          <option value="heavy">🩸🩸🩸🩸 Nhiều</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Tâm trạng (Mood):</label>
+        <select id="logMood" class="form-control">
+          <option value="">Bình thường</option>
+          <option value="happy">😊 Vui vẻ / Thoải mái</option>
+          <option value="sad">😢 Nhạy cảm / Buồn</option>
+          <option value="anxious">😰 Lo âu / Căng thẳng</option>
+          <option value="energetic">⚡ Sung sức / Năng lượng</option>
+        </select>
+      </div>
+
+      <!-- Symptom Severity Ratings (1 to 5) -->
+      <label style="display: block; font-size: 13px; font-weight: 700; margin-top: 14px; margin-bottom: 6px;">
+        Mức độ triệu chứng cơ thể (1 = Nhẹ, 5 = Rất nặng):
+      </label>
+
+      <div class="rating-group">
+        <span class="rating-title">😣 Đau bụng</span>
+        <div class="rating-stars" data-symptom="cramps">
+          <button type="button" class="star-btn" onclick="setRating('cramps', 1)">1</button>
+          <button type="button" class="star-btn" onclick="setRating('cramps', 2)">2</button>
+          <button type="button" class="star-btn" onclick="setRating('cramps', 3)">3</button>
+          <button type="button" class="star-btn" onclick="setRating('cramps', 4)">4</button>
+          <button type="button" class="star-btn" onclick="setRating('cramps', 5)">5</button>
+        </div>
+      </div>
+
+      <div class="rating-group">
+        <span class="rating-title">🤕 Đau đầu</span>
+        <div class="rating-stars" data-symptom="headache">
+          <button type="button" class="star-btn" onclick="setRating('headache', 1)">1</button>
+          <button type="button" class="star-btn" onclick="setRating('headache', 2)">2</button>
+          <button type="button" class="star-btn" onclick="setRating('headache', 3)">3</button>
+          <button type="button" class="star-btn" onclick="setRating('headache', 4)">4</button>
+          <button type="button" class="star-btn" onclick="setRating('headache', 5)">5</button>
+        </div>
+      </div>
+
+      <div class="rating-group">
+        <span class="rating-title">😴 Mệt mỏi</span>
+        <div class="rating-stars" data-symptom="fatigue">
+          <button type="button" class="star-btn" onclick="setRating('fatigue', 1)">1</button>
+          <button type="button" class="star-btn" onclick="setRating('fatigue', 2)">2</button>
+          <button type="button" class="star-btn" onclick="setRating('fatigue', 3)">3</button>
+          <button type="button" class="star-btn" onclick="setRating('fatigue', 4)">4</button>
+          <button type="button" class="star-btn" onclick="setRating('fatigue', 5)">5</button>
+        </div>
+      </div>
+
+      <div class="rating-group">
+        <span class="rating-title">🎈 Đầy hơi</span>
+        <div class="rating-stars" data-symptom="bloating">
+          <button type="button" class="star-btn" onclick="setRating('bloating', 1)">1</button>
+          <button type="button" class="star-btn" onclick="setRating('bloating', 2)">2</button>
+          <button type="button" class="star-btn" onclick="setRating('bloating', 3)">3</button>
+          <button type="button" class="star-btn" onclick="setRating('bloating', 4)">4</button>
+          <button type="button" class="star-btn" onclick="setRating('bloating', 5)">5</button>
+        </div>
+      </div>
+
+      <div class="rating-group">
+        <span class="rating-title">✨ Nổi mụn</span>
+        <div class="rating-stars" data-symptom="acne">
+          <button type="button" class="star-btn" onclick="setRating('acne', 1)">1</button>
+          <button type="button" class="star-btn" onclick="setRating('acne', 2)">2</button>
+          <button type="button" class="star-btn" onclick="setRating('acne', 3)">3</button>
+          <button type="button" class="star-btn" onclick="setRating('acne', 4)">4</button>
+          <button type="button" class="star-btn" onclick="setRating('acne', 5)">5</button>
+        </div>
+      </div>
+
+      <div class="rating-group">
+        <span class="rating-title">🍈 Căng ngực</span>
+        <div class="rating-stars" data-symptom="breast_tenderness">
+          <button type="button" class="star-btn" onclick="setRating('breast_tenderness', 1)">1</button>
+          <button type="button" class="star-btn" onclick="setRating('breast_tenderness', 2)">2</button>
+          <button type="button" class="star-btn" onclick="setRating('breast_tenderness', 3)">3</button>
+          <button type="button" class="star-btn" onclick="setRating('breast_tenderness', 4)">4</button>
+          <button type="button" class="star-btn" onclick="setRating('breast_tenderness', 5)">5</button>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 14px;">
+        <label>Ghi chú cá nhân:</label>
+        <textarea id="logNotes" class="form-control" rows="2" placeholder="Nhập cảm nhận của bạn..."></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+        <button class="btn btn-secondary" onclick="closeModal('logModal')">Hủy</button>
+        <button class="btn btn-primary" onclick="saveDailyLog()">Lưu Nhật Ký</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Change Password -->
+  <div class="modal-backdrop" id="changePasswordModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="card-title">🔑 Đổi Mật Khẩu</div>
+        <button class="close-btn" onclick="closeModal('changePasswordModal')">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu hiện tại:</label>
+        <input type="password" id="oldPassword" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu mới:</label>
+        <input type="password" id="newPassword" class="form-control" required>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+        <button class="btn btn-secondary" onclick="closeModal('changePasswordModal')">Hủy</button>
+        <button class="btn btn-primary" onclick="submitChangePassword()">Cập Nhật Mật Khẩu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">Thành công!</div>
+
+  <!-- Main JavaScript Application Logic -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
