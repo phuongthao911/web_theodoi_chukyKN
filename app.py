@@ -11,6 +11,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db, init_db, DATA_DIR
 
 app = Flask(__name__)
+app.permanent_session_lifetime = timedelta(days=30)
 
 # Tự động tạo và quản lý Secret Key an toàn
 SECRET_FILE = os.path.join(DATA_DIR, 'secret_key.txt')
@@ -157,7 +158,7 @@ def auth_status():
 
 @app.route('/api/auth/register', methods=['POST'])
 def auth_register():
-    data = request.get_json()
+    data = request.get_json() or {}
     username = data.get('username', '').strip()
     password = data.get('password', '').strip()
 
@@ -183,6 +184,7 @@ def auth_register():
         conn.commit()
         conn.close()
 
+        session.permanent = True
         session['user_id'] = user_id
         session['username'] = username
         return jsonify({'message': 'Đăng ký tài khoản thành công', 'username': username}), 201
@@ -192,9 +194,10 @@ def auth_register():
 
 @app.route('/api/auth/login', methods=['POST'])
 def auth_login():
-    data = request.get_json()
+    data = request.get_json() or {}
     username = data.get('username', '').strip()
     password = data.get('password', '').strip()
+    remember = data.get('remember', True)
 
     if not username or not password:
         return jsonify({'error': 'Vui lòng nhập tên đăng nhập và mật khẩu'}), 400
@@ -206,11 +209,43 @@ def auth_login():
     conn.close()
 
     if user and check_password_hash(user['password_hash'], password):
+        session.permanent = bool(remember)
         session['user_id'] = user['id']
         session['username'] = user['username']
         return jsonify({'message': 'Đăng nhập thành công', 'username': user['username']})
     else:
         return jsonify({'error': 'Tên đăng nhập hoặc mật khẩu không chính xác'}), 401
+
+@app.route('/api/auth/reset-password', methods=['POST'])
+def auth_reset_password():
+    data = request.get_json() or {}
+    username = data.get('username', '').strip()
+    new_password = data.get('new_password', '').strip()
+
+    if not username:
+        return jsonify({'error': 'Vui lòng nhập tên đăng nhập'}), 400
+    if not new_password or len(new_password) < 4:
+        return jsonify({'error': 'Mật khẩu mới phải từ 4 ký tự trở lên'}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username FROM users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        return jsonify({'error': 'Tên đăng nhập không tồn tại trên hệ thống'}), 404
+
+    hashed_pw = generate_password_hash(new_password)
+    cursor.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hashed_pw, user['id']))
+    conn.commit()
+    conn.close()
+
+    session.permanent = True
+    session['user_id'] = user['id']
+    session['username'] = user['username']
+
+    return jsonify({'message': 'Đặt lại mật khẩu thành công!', 'username': user['username']})
 
 @app.route('/api/auth/logout', methods=['POST'])
 def auth_logout():

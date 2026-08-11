@@ -84,7 +84,11 @@ function clearAllFieldErrors() {
 }
 
 function resetAuthForms() {
-  const fields = ['loginUsername', 'loginPassword', 'regUsername', 'regPassword', 'regPasswordConfirm'];
+  const fields = [
+    'loginUsername', 'loginPassword',
+    'regUsername', 'regPassword', 'regPasswordConfirm',
+    'forgotUsername', 'forgotNewPassword', 'forgotNewPasswordConfirm'
+  ];
   fields.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -97,6 +101,16 @@ function resetAuthForms() {
   document.querySelectorAll('#authModal .toggle-pw-btn').forEach(btn => {
     btn.textContent = '👁️';
   });
+
+  // Khôi phục tên đăng nhập đã ghi nhớ nếu có
+  const savedUser = localStorage.getItem('saved_login_username');
+  if (savedUser) {
+    const loginU = document.getElementById('loginUsername');
+    const rememberCb = document.getElementById('loginRememberMe');
+    if (loginU) loginU.value = savedUser;
+    if (rememberCb) rememberCb.checked = true;
+  }
+
   clearAllFieldErrors();
 }
 
@@ -105,6 +119,9 @@ function switchAuthTab(tab) {
   const tabReg = document.getElementById('tabAuthRegister');
   const formLogin = document.getElementById('formAuthLogin');
   const formReg = document.getElementById('formAuthRegister');
+  const formForgot = document.getElementById('formAuthForgot');
+
+  const currentLoginUser = document.getElementById('loginUsername') ? document.getElementById('loginUsername').value.trim() : '';
 
   resetAuthForms();
 
@@ -113,19 +130,43 @@ function switchAuthTab(tab) {
     tabReg.classList.remove('active');
     formLogin.style.display = 'block';
     formReg.style.display = 'none';
+    if (formForgot) formForgot.style.display = 'none';
     setTimeout(() => {
       const loginU = document.getElementById('loginUsername');
-      if (loginU) loginU.focus();
+      const loginP = document.getElementById('loginPassword');
+      if (loginU && !loginU.value) loginU.focus();
+      else if (loginP) loginP.focus();
     }, 100);
-  } else {
+  } else if (tab === 'register') {
     tabReg.classList.add('active');
     tabLogin.classList.remove('active');
     formReg.style.display = 'block';
     formLogin.style.display = 'none';
+    if (formForgot) formForgot.style.display = 'none';
     setTimeout(() => {
       const regU = document.getElementById('regUsername');
       if (regU) regU.focus();
     }, 100);
+  } else if (tab === 'forgot') {
+    tabLogin.classList.remove('active');
+    tabReg.classList.remove('active');
+    formLogin.style.display = 'none';
+    formReg.style.display = 'none';
+    if (formForgot) {
+      formForgot.style.display = 'block';
+      const forgotU = document.getElementById('forgotUsername');
+      if (forgotU) {
+        if (currentLoginUser) forgotU.value = currentLoginUser;
+        setTimeout(() => {
+          if (forgotU.value) {
+            const newP = document.getElementById('forgotNewPassword');
+            if (newP) newP.focus();
+          } else {
+            forgotU.focus();
+          }
+        }, 100);
+      }
+    }
   }
 }
 
@@ -140,7 +181,8 @@ async function checkAuthStatus() {
     if (!data.is_logged_in) {
       resetAuthForms();
       openModal('authModal');
-      document.getElementById('loginUsername').focus();
+      const loginU = document.getElementById('loginUsername');
+      if (loginU && !loginU.value) loginU.focus();
     } else {
       document.getElementById('appMain').style.display = 'block';
       document.getElementById('userWelcomeText').textContent = `Tài khoản: ${data.username}`;
@@ -195,6 +237,7 @@ async function submitRegister() {
     });
     const data = await res.json();
     if (res.ok) {
+      localStorage.setItem('saved_login_username', username);
       resetAuthForms();
       showToast("Tạo tài khoản thành công!");
       checkAuthStatus();
@@ -218,6 +261,7 @@ async function submitLogin() {
   const usernameInput = document.getElementById('loginUsername');
   const username = usernameInput.value.trim();
   const password = document.getElementById('loginPassword').value.trim();
+  const remember = document.getElementById('loginRememberMe') ? document.getElementById('loginRememberMe').checked : true;
 
   clearAllFieldErrors();
   let hasError = false;
@@ -238,10 +282,15 @@ async function submitLogin() {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password, remember })
     });
     const data = await res.json();
     if (res.ok) {
+      if (remember) {
+        localStorage.setItem('saved_login_username', username);
+      } else {
+        localStorage.removeItem('saved_login_username');
+      }
       resetAuthForms();
       showToast("Đăng nhập thành công!");
       checkAuthStatus();
@@ -251,6 +300,59 @@ async function submitLogin() {
     }
   } catch (err) {
     setFieldError('loginPassword', 'Đã xảy ra lỗi kết nối máy chủ');
+  }
+}
+
+async function submitForgotPassword() {
+  const usernameInput = document.getElementById('forgotUsername');
+  const username = usernameInput.value.trim();
+  const p1 = document.getElementById('forgotNewPassword').value.trim();
+  const p2 = document.getElementById('forgotNewPasswordConfirm').value.trim();
+
+  clearAllFieldErrors();
+  let hasError = false;
+
+  if (!username) {
+    setFieldError('forgotUsername', 'Vui lòng nhập tên đăng nhập');
+    hasError = true;
+  }
+
+  if (!p1) {
+    setFieldError('forgotNewPassword', 'Vui lòng nhập mật khẩu mới');
+    hasError = true;
+  } else if (p1.length < 4) {
+    setFieldError('forgotNewPassword', 'Mật khẩu mới phải từ 4 ký tự trở lên');
+    hasError = true;
+  }
+
+  if (!p2) {
+    setFieldError('forgotNewPasswordConfirm', 'Vui lòng xác nhận mật khẩu mới');
+    hasError = true;
+  } else if (p1 !== p2) {
+    setFieldError('forgotNewPasswordConfirm', 'Mật khẩu xác nhận không khớp');
+    hasError = true;
+  }
+
+  if (hasError) return;
+
+  try {
+    const res = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, new_password: p1 })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      localStorage.setItem('saved_login_username', username);
+      resetAuthForms();
+      showToast("Đặt lại mật khẩu thành công!");
+      checkAuthStatus();
+    } else {
+      setFieldError('forgotUsername', data.error || 'Không tìm thấy tên đăng nhập này');
+      usernameInput.focus();
+    }
+  } catch (err) {
+    setFieldError('forgotUsername', 'Đã xảy ra lỗi kết nối máy chủ');
   }
 }
 

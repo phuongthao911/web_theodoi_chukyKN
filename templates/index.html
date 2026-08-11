@@ -55,8 +55,16 @@
           <div class="field-error-text" id="loginPasswordError" style="display: none;"></div>
         </div>
 
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; margin-bottom: 14px; font-size: 13px;">
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-main); font-weight: normal; margin: 0;">
+            <input type="checkbox" id="loginRememberMe" checked style="accent-color: var(--primary-dark); cursor: pointer; width: 15px; height: 15px;">
+            <span>Ghi nhớ đăng nhập</span>
+          </label>
+          <a href="javascript:void(0)" onclick="switchAuthTab('forgot')" style="color: var(--accent); text-decoration: none; font-weight: 600;">Quên mật khẩu?</a>
+        </div>
+
         <button class="btn btn-primary"
-          style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;"
+          style="width: 100%; justify-content: center; margin-top: 6px; font-size: 15px; padding: 11px;"
           onclick="submitLogin()">🔓 Đăng Nhập</button>
       </div>
 
@@ -104,6 +112,55 @@
         <button class="btn btn-primary"
           style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;"
           onclick="submitRegister()">✨ Tạo Tài Khoản & Bắt Đầu</button>
+      </div>
+
+      <!-- FORM QUÊN MẬT KHẨU -->
+      <div id="formAuthForgot" style="display: none;">
+        <h3 style="margin-bottom: 6px;">Khôi Phục Mật Khẩu</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+          Nhập đúng Tên đăng nhập để thiết lập mật khẩu mới ngay lập tức.
+        </p>
+
+        <div class="form-group" style="text-align: left;">
+          <label>Tên đăng nhập đã đăng ký:</label>
+          <input type="text" id="forgotUsername" class="form-control" placeholder="Nhập tên tài khoản của bạn..."
+            oninput="clearFieldError('forgotUsername')"
+            onkeyup="if(event.key==='Enter') document.getElementById('forgotNewPassword').focus()" autocomplete="off"
+            required>
+          <div class="field-error-text" id="forgotUsernameError" style="display: none;"></div>
+        </div>
+
+        <div class="form-group" style="text-align: left;">
+          <label>Mật khẩu mới (từ 4 ký tự):</label>
+          <div class="password-wrapper">
+            <input type="password" id="forgotNewPassword" class="form-control" placeholder="Nhập mật khẩu mới..."
+              oninput="clearFieldError('forgotNewPassword')"
+              onkeyup="if(event.key==='Enter') document.getElementById('forgotNewPasswordConfirm').focus()" autocomplete="off"
+              required>
+            <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('forgotNewPassword', this)">👁️</button>
+          </div>
+          <div class="field-error-text" id="forgotNewPasswordError" style="display: none;"></div>
+        </div>
+
+        <div class="form-group" style="text-align: left;">
+          <label>Xác nhận mật khẩu mới:</label>
+          <div class="password-wrapper">
+            <input type="password" id="forgotNewPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu mới..."
+              oninput="clearFieldError('forgotNewPasswordConfirm')" onkeyup="if(event.key==='Enter') submitForgotPassword()"
+              autocomplete="off" required>
+            <button type="button" class="toggle-pw-btn"
+              onclick="togglePasswordVisibility('forgotNewPasswordConfirm', this)">👁️</button>
+          </div>
+          <div class="field-error-text" id="forgotNewPasswordConfirmError" style="display: none;"></div>
+        </div>
+
+        <button class="btn btn-primary"
+          style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;"
+          onclick="submitForgotPassword()">🔑 Cập Nhật Mật Khẩu & Đăng Nhập</button>
+
+        <div style="text-align: center; margin-top: 14px;">
+          <a href="javascript:void(0)" onclick="switchAuthTab('login')" style="font-size: 13px; color: var(--text-muted); text-decoration: none;">❮ Quay lại Đăng Nhập</a>
+        </div>
       </div>
 
     </div>
