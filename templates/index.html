@@ -31,13 +31,13 @@
 
         <div class="form-group" style="text-align: left;">
           <label>Tên đăng nhập:</label>
-          <input type="text" id="loginUsername" class="form-control" placeholder="Tên đăng nhập..." required>
+          <input type="text" id="loginUsername" class="form-control" placeholder="Tên đăng nhập..." onkeyup="if(event.key==='Enter') document.getElementById('loginPassword').focus()" autocomplete="off" required>
         </div>
 
         <div class="form-group" style="text-align: left;">
           <label>Mật khẩu:</label>
           <div class="password-wrapper">
-            <input type="password" id="loginPassword" class="form-control" placeholder="Mật khẩu..." onkeyup="if(event.key==='Enter') submitLogin()" required>
+            <input type="password" id="loginPassword" class="form-control" placeholder="Mật khẩu..." onkeyup="if(event.key==='Enter') submitLogin()" autocomplete="off" required>
             <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('loginPassword', this)">👁️</button>
           </div>
         </div>
@@ -54,13 +54,13 @@
 
         <div class="form-group" style="text-align: left;">
           <label>Tên đăng nhập mới:</label>
-          <input type="text" id="regUsername" class="form-control" placeholder="Ví dụ: phuongthao" required>
+          <input type="text" id="regUsername" class="form-control" placeholder="Ví dụ: phuongthao" onkeyup="if(event.key==='Enter') document.getElementById('regPassword').focus()" autocomplete="off" required>
         </div>
 
         <div class="form-group" style="text-align: left;">
           <label>Mật khẩu (ít nhất 4 ký tự):</label>
           <div class="password-wrapper">
-            <input type="password" id="regPassword" class="form-control" placeholder="Tạo mật khẩu..." required>
+            <input type="password" id="regPassword" class="form-control" placeholder="Tạo mật khẩu..." onkeyup="if(event.key==='Enter') document.getElementById('regPasswordConfirm').focus()" autocomplete="off" required>
             <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('regPassword', this)">👁️</button>
           </div>
         </div>
@@ -68,7 +68,7 @@
         <div class="form-group" style="text-align: left;">
           <label>Xác nhận mật khẩu:</label>
           <div class="password-wrapper">
-            <input type="password" id="regPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..." required>
+            <input type="password" id="regPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..." onkeyup="if(event.key==='Enter') submitRegister()" autocomplete="off" required>
             <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('regPasswordConfirm', this)">👁️</button>
           </div>
         </div>

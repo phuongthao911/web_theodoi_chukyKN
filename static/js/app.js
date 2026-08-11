@@ -47,6 +47,22 @@ function closeModal(id) {
 }
 
 // --- AUTHENTICATION & MULTI-DEVICE ACCOUNT FLOW ---
+function resetAuthForms() {
+  const fields = ['loginUsername', 'loginPassword', 'regUsername', 'regPassword', 'regPasswordConfirm'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = '';
+      if (id.includes('Password') || id.includes('password')) {
+        el.type = 'password';
+      }
+    }
+  });
+  document.querySelectorAll('#authModal .toggle-pw-btn').forEach(btn => {
+    btn.textContent = '👁️';
+  });
+}
+
 function switchAuthTab(tab) {
   const tabLogin = document.getElementById('tabAuthLogin');
   const tabReg = document.getElementById('tabAuthRegister');
@@ -75,6 +91,7 @@ async function checkAuthStatus() {
     document.getElementById('appMain').style.display = 'none';
 
     if (!data.is_logged_in) {
+      resetAuthForms();
       openModal('authModal');
       document.getElementById('loginUsername').focus();
     } else {
@@ -114,6 +131,7 @@ async function submitRegister() {
     });
     const data = await res.json();
     if (res.ok) {
+      resetAuthForms();
       showToast("Tạo tài khoản thành công!");
       checkAuthStatus();
     } else {
@@ -141,7 +159,7 @@ async function submitLogin() {
     });
     const data = await res.json();
     if (res.ok) {
-      document.getElementById('loginPassword').value = '';
+      resetAuthForms();
       showToast("Đăng nhập thành công!");
       checkAuthStatus();
     } else {
@@ -154,6 +172,8 @@ async function submitLogin() {
 
 async function submitLogout() {
   await fetch('/api/auth/logout', { method: 'POST' });
+  resetAuthForms();
+  switchAuthTab('login');
   showToast("Đã đăng xuất");
   checkAuthStatus();
 }
