@@ -47,7 +47,40 @@ function closeModal(id) {
 }
 
 // --- AUTHENTICATION & MULTI-DEVICE ACCOUNT FLOW ---
-let checkUsernameTimeout = null;
+function setFieldError(fieldId, errorMsg) {
+  const input = document.getElementById(fieldId);
+  const errEl = document.getElementById(fieldId + 'Error');
+  if (input) {
+    input.classList.add('is-invalid');
+  }
+  if (errEl) {
+    errEl.textContent = errorMsg;
+    errEl.style.display = 'block';
+  }
+}
+
+function clearFieldError(fieldId) {
+  const input = document.getElementById(fieldId);
+  const errEl = document.getElementById(fieldId + 'Error');
+  if (input) {
+    input.classList.remove('is-invalid');
+  }
+  if (errEl) {
+    errEl.textContent = '';
+    errEl.style.display = 'none';
+  }
+}
+
+function clearAllFieldErrors() {
+  document.querySelectorAll('.field-error-text').forEach(el => {
+    el.textContent = '';
+    el.style.display = 'none';
+  });
+  document.querySelectorAll('.form-control').forEach(el => {
+    el.classList.remove('is-invalid');
+    el.classList.remove('is-valid');
+  });
+}
 
 function resetAuthForms() {
   const fields = ['loginUsername', 'loginPassword', 'regUsername', 'regPassword', 'regPasswordConfirm'];
@@ -55,7 +88,6 @@ function resetAuthForms() {
     const el = document.getElementById(id);
     if (el) {
       el.value = '';
-      el.style.borderColor = '';
       if (id.includes('Password') || id.includes('password')) {
         el.type = 'password';
       }
@@ -64,67 +96,7 @@ function resetAuthForms() {
   document.querySelectorAll('#authModal .toggle-pw-btn').forEach(btn => {
     btn.textContent = '👁️';
   });
-
-  const regFeedback = document.getElementById('regUsernameFeedback');
-  if (regFeedback) {
-    regFeedback.style.display = 'none';
-    regFeedback.textContent = '';
-  }
-  const regErr = document.getElementById('regErrorMsg');
-  if (regErr) {
-    regErr.style.display = 'none';
-    regErr.textContent = '';
-  }
-  const loginErr = document.getElementById('loginErrorMsg');
-  if (loginErr) {
-    loginErr.style.display = 'none';
-    loginErr.textContent = '';
-  }
-}
-
-function checkUsernameAvailability() {
-  const input = document.getElementById('regUsername');
-  const feedback = document.getElementById('regUsernameFeedback');
-  const errBox = document.getElementById('regErrorMsg');
-  if (!input || !feedback) return;
-
-  if (errBox) errBox.style.display = 'none';
-
-  const val = input.value.trim();
-  if (checkUsernameTimeout) clearTimeout(checkUsernameTimeout);
-
-  if (!val) {
-    feedback.style.display = 'none';
-    input.style.borderColor = '';
-    return;
-  }
-
-  if (val.length < 3) {
-    feedback.style.display = 'block';
-    feedback.style.color = '#e63946';
-    feedback.textContent = '⚠️ Tên đăng nhập phải có ít nhất 3 ký tự';
-    input.style.borderColor = '#e63946';
-    return;
-  }
-
-  checkUsernameTimeout = setTimeout(async () => {
-    try {
-      const res = await fetch(`/api/auth/check-username?username=${encodeURIComponent(val)}`);
-      const data = await res.json();
-      feedback.style.display = 'block';
-      if (data.available) {
-        feedback.style.color = '#2a9d8f';
-        feedback.textContent = '✅ ' + data.message;
-        input.style.borderColor = '#2a9d8f';
-      } else {
-        feedback.style.color = '#e63946';
-        feedback.textContent = '❌ ' + data.message;
-        input.style.borderColor = '#e63946';
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }, 300);
+  clearAllFieldErrors();
 }
 
 function switchAuthTab(tab) {
@@ -184,38 +156,35 @@ async function submitRegister() {
   const username = usernameInput.value.trim();
   const p1 = document.getElementById('regPassword').value.trim();
   const p2 = document.getElementById('regPasswordConfirm').value.trim();
-  const errBox = document.getElementById('regErrorMsg');
 
-  if (errBox) errBox.style.display = 'none';
+  clearAllFieldErrors();
+  let hasError = false;
 
-  if (!username || username.length < 3) {
-    if (errBox) {
-      errBox.textContent = "Tên đăng nhập phải có ít nhất 3 ký tự!";
-      errBox.style.display = 'block';
-    } else {
-      alert("Tên đăng nhập phải có ít nhất 3 ký tự!");
-    }
-    usernameInput.focus();
-    return;
+  if (!username) {
+    setFieldError('regUsername', 'Vui lòng nhập tên đăng nhập');
+    hasError = true;
+  } else if (username.length < 3) {
+    setFieldError('regUsername', 'Tên đăng nhập phải có ít nhất 3 ký tự');
+    hasError = true;
   }
-  if (!p1 || p1.length < 4) {
-    if (errBox) {
-      errBox.textContent = "Mật khẩu phải từ 4 ký tự trở lên!";
-      errBox.style.display = 'block';
-    } else {
-      alert("Mật khẩu phải từ 4 ký tự trở lên!");
-    }
-    return;
+
+  if (!p1) {
+    setFieldError('regPassword', 'Vui lòng nhập mật khẩu');
+    hasError = true;
+  } else if (p1.length < 4) {
+    setFieldError('regPassword', 'Mật khẩu phải từ 4 ký tự trở lên');
+    hasError = true;
   }
-  if (p1 !== p2) {
-    if (errBox) {
-      errBox.textContent = "Mật khẩu xác nhận không khớp!";
-      errBox.style.display = 'block';
-    } else {
-      alert("Mật khẩu xác nhận không khớp!");
-    }
-    return;
+
+  if (!p2) {
+    setFieldError('regPasswordConfirm', 'Vui lòng xác nhận mật khẩu');
+    hasError = true;
+  } else if (p1 !== p2) {
+    setFieldError('regPasswordConfirm', 'Mật khẩu xác nhận không khớp');
+    hasError = true;
   }
+
+  if (hasError) return;
 
   try {
     const res = await fetch('/api/auth/register', {
@@ -229,43 +198,40 @@ async function submitRegister() {
       showToast("Tạo tài khoản thành công!");
       checkAuthStatus();
     } else {
-      if (errBox) {
-        errBox.textContent = data.error || "Lỗi đăng ký tài khoản";
-        errBox.style.display = 'block';
-      } else {
-        alert(data.error || "Lỗi đăng ký tài khoản");
-      }
-      if (data.error && data.error.includes('đã tồn tại')) {
-        usernameInput.style.borderColor = '#e63946';
+      const err = data.error || 'Lỗi đăng ký tài khoản';
+      if (err.includes('tồn tại') || err.includes('Tên đăng nhập')) {
+        setFieldError('regUsername', err);
         usernameInput.focus();
+      } else if (err.includes('Mật khẩu')) {
+        setFieldError('regPassword', err);
+      } else {
+        setFieldError('regUsername', err);
       }
     }
   } catch (err) {
-    if (errBox) {
-      errBox.textContent = "Đã xảy ra lỗi kết nối";
-      errBox.style.display = 'block';
-    } else {
-      alert("Đã xảy ra lỗi kết nối");
-    }
+    setFieldError('regUsername', 'Đã xảy ra lỗi kết nối máy chủ');
   }
 }
 
 async function submitLogin() {
-  const username = document.getElementById('loginUsername').value.trim();
+  const usernameInput = document.getElementById('loginUsername');
+  const username = usernameInput.value.trim();
   const password = document.getElementById('loginPassword').value.trim();
-  const errBox = document.getElementById('loginErrorMsg');
 
-  if (errBox) errBox.style.display = 'none';
+  clearAllFieldErrors();
+  let hasError = false;
 
-  if (!username || !password) {
-    if (errBox) {
-      errBox.textContent = "Vui lòng nhập tên đăng nhập và mật khẩu!";
-      errBox.style.display = 'block';
-    } else {
-      alert("Vui lòng nhập tên đăng nhập và mật khẩu!");
-    }
-    return;
+  if (!username) {
+    setFieldError('loginUsername', 'Vui lòng nhập tên đăng nhập');
+    hasError = true;
   }
+
+  if (!password) {
+    setFieldError('loginPassword', 'Vui lòng nhập mật khẩu');
+    hasError = true;
+  }
+
+  if (hasError) return;
 
   try {
     const res = await fetch('/api/auth/login', {
@@ -279,20 +245,11 @@ async function submitLogin() {
       showToast("Đăng nhập thành công!");
       checkAuthStatus();
     } else {
-      if (errBox) {
-        errBox.textContent = data.error || "Tên đăng nhập hoặc mật khẩu không đúng";
-        errBox.style.display = 'block';
-      } else {
-        alert(data.error || "Tên đăng nhập hoặc mật khẩu không đúng");
-      }
+      setFieldError('loginPassword', data.error || 'Tên đăng nhập hoặc mật khẩu không chính xác');
+      document.getElementById('loginUsername').classList.add('is-invalid');
     }
   } catch (err) {
-    if (errBox) {
-      errBox.textContent = "Đã xảy ra lỗi kết nối";
-      errBox.style.display = 'block';
-    } else {
-      alert("Đã xảy ra lỗi kết nối");
-    }
+    setFieldError('loginPassword', 'Đã xảy ra lỗi kết nối máy chủ');
   }
 }
 
@@ -307,6 +264,8 @@ async function submitLogout() {
 function openChangePasswordModal() {
   document.getElementById('oldPassword').value = '';
   document.getElementById('newPassword').value = '';
+  clearFieldError('oldPassword');
+  clearFieldError('newPassword');
   openModal('changePasswordModal');
 }
 
@@ -314,10 +273,23 @@ async function submitChangePassword() {
   const old_password = document.getElementById('oldPassword').value;
   const new_password = document.getElementById('newPassword').value;
 
-  if (!old_password || !new_password) {
-    alert("Vui lòng điền đầy đủ các trường");
-    return;
+  clearFieldError('oldPassword');
+  clearFieldError('newPassword');
+  let hasError = false;
+
+  if (!old_password) {
+    setFieldError('oldPassword', 'Vui lòng nhập mật khẩu hiện tại');
+    hasError = true;
   }
+  if (!new_password) {
+    setFieldError('newPassword', 'Vui lòng nhập mật khẩu mới');
+    hasError = true;
+  } else if (new_password.length < 4) {
+    setFieldError('newPassword', 'Mật khẩu mới phải từ 4 ký tự trở lên');
+    hasError = true;
+  }
+
+  if (hasError) return;
 
   try {
     const res = await fetch('/api/auth/change-password', {
@@ -330,10 +302,10 @@ async function submitChangePassword() {
       closeModal('changePasswordModal');
       showToast("Đổi mật khẩu thành công!");
     } else {
-      alert(data.error || "Lỗi đổi mật khẩu");
+      setFieldError('oldPassword', data.error || 'Mật khẩu hiện tại không đúng');
     }
   } catch (err) {
-    alert("Đã xảy ra lỗi kết nối");
+    setFieldError('oldPassword', 'Đã xảy ra lỗi kết nối');
   }
 }
 

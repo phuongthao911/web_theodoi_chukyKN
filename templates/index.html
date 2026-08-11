@@ -31,18 +31,18 @@
 
         <div class="form-group" style="text-align: left;">
           <label>Tên đăng nhập:</label>
-          <input type="text" id="loginUsername" class="form-control" placeholder="Tên đăng nhập..." onkeyup="if(event.key==='Enter') document.getElementById('loginPassword').focus()" autocomplete="off" required>
+          <input type="text" id="loginUsername" class="form-control" placeholder="Tên đăng nhập..." oninput="clearFieldError('loginUsername')" onkeyup="if(event.key==='Enter') document.getElementById('loginPassword').focus()" autocomplete="off" required>
+          <div class="field-error-text" id="loginUsernameError" style="display: none;"></div>
         </div>
 
         <div class="form-group" style="text-align: left;">
           <label>Mật khẩu:</label>
           <div class="password-wrapper">
-            <input type="password" id="loginPassword" class="form-control" placeholder="Mật khẩu..." onkeyup="if(event.key==='Enter') submitLogin()" autocomplete="off" required>
+            <input type="password" id="loginPassword" class="form-control" placeholder="Mật khẩu..." oninput="clearFieldError('loginPassword')" onkeyup="if(event.key==='Enter') submitLogin()" autocomplete="off" required>
             <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('loginPassword', this)">👁️</button>
           </div>
+          <div class="field-error-text" id="loginPasswordError" style="display: none;"></div>
         </div>
-
-        <div id="loginErrorMsg" style="display: none; color: #e63946; font-size: 13px; margin-bottom: 12px; background: rgba(230, 57, 70, 0.1); padding: 8px 12px; border-radius: 8px; text-align: center;"></div>
 
         <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;" onclick="submitLogin()">🔓 Đăng Nhập</button>
       </div>
@@ -56,27 +56,27 @@
 
         <div class="form-group" style="text-align: left;">
           <label>Tên đăng nhập mới:</label>
-          <input type="text" id="regUsername" class="form-control" placeholder="Ví dụ: phuongthao" oninput="checkUsernameAvailability()" onkeyup="if(event.key==='Enter') document.getElementById('regPassword').focus()" autocomplete="off" required>
-          <div id="regUsernameFeedback" style="font-size: 12px; margin-top: 4px; display: none;"></div>
+          <input type="text" id="regUsername" class="form-control" placeholder="Ví dụ: phuongthao" oninput="clearFieldError('regUsername')" onkeyup="if(event.key==='Enter') document.getElementById('regPassword').focus()" autocomplete="off" required>
+          <div class="field-error-text" id="regUsernameError" style="display: none;"></div>
         </div>
 
         <div class="form-group" style="text-align: left;">
           <label>Mật khẩu (ít nhất 4 ký tự):</label>
           <div class="password-wrapper">
-            <input type="password" id="regPassword" class="form-control" placeholder="Tạo mật khẩu..." onkeyup="if(event.key==='Enter') document.getElementById('regPasswordConfirm').focus()" autocomplete="off" required>
+            <input type="password" id="regPassword" class="form-control" placeholder="Tạo mật khẩu..." oninput="clearFieldError('regPassword')" onkeyup="if(event.key==='Enter') document.getElementById('regPasswordConfirm').focus()" autocomplete="off" required>
             <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('regPassword', this)">👁️</button>
           </div>
+          <div class="field-error-text" id="regPasswordError" style="display: none;"></div>
         </div>
 
         <div class="form-group" style="text-align: left;">
           <label>Xác nhận mật khẩu:</label>
           <div class="password-wrapper">
-            <input type="password" id="regPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..." onkeyup="if(event.key==='Enter') submitRegister()" autocomplete="off" required>
+            <input type="password" id="regPasswordConfirm" class="form-control" placeholder="Nhập lại mật khẩu..." oninput="clearFieldError('regPasswordConfirm')" onkeyup="if(event.key==='Enter') submitRegister()" autocomplete="off" required>
             <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('regPasswordConfirm', this)">👁️</button>
           </div>
+          <div class="field-error-text" id="regPasswordConfirmError" style="display: none;"></div>
         </div>
-
-        <div id="regErrorMsg" style="display: none; color: #e63946; font-size: 13px; margin-bottom: 12px; background: rgba(230, 57, 70, 0.1); padding: 8px 12px; border-radius: 8px; text-align: center;"></div>
 
         <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px; font-size: 15px; padding: 11px;" onclick="submitRegister()">✨ Tạo Tài Khoản & Bắt Đầu</button>
       </div>
@@ -404,16 +404,18 @@
       <div class="form-group">
         <label>Mật khẩu hiện tại:</label>
         <div class="password-wrapper">
-          <input type="password" id="oldPassword" class="form-control" required>
+          <input type="password" id="oldPassword" class="form-control" oninput="clearFieldError('oldPassword')" required>
           <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('oldPassword', this)">👁️</button>
         </div>
+        <div class="field-error-text" id="oldPasswordError" style="display: none;"></div>
       </div>
       <div class="form-group">
         <label>Mật khẩu mới:</label>
         <div class="password-wrapper">
-          <input type="password" id="newPassword" class="form-control" required>
+          <input type="password" id="newPassword" class="form-control" oninput="clearFieldError('newPassword')" required>
           <button type="button" class="toggle-pw-btn" onclick="togglePasswordVisibility('newPassword', this)">👁️</button>
         </div>
+        <div class="field-error-text" id="newPasswordError" style="display: none;"></div>
       </div>
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
         <button class="btn btn-secondary" onclick="closeModal('changePasswordModal')">Hủy</button>
